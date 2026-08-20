@@ -82,7 +82,8 @@ export function UploadPage() {
               <option value="">Selecione</option>
               {segmentsForRoad.map((segment) => (
                 <option key={segment.id} value={segment.id}>
-                  km {segment.km_start} – {segment.km_end} ({segment.direction})
+                  km {segment.km_start} – {segment.km_end}
+                  {segment.direction ? ` (${segment.direction})` : ""}
                 </option>
               ))}
             </select>

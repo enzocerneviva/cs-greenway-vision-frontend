@@ -75,7 +75,8 @@ export function SegmentsMap({
             <Tooltip sticky>
               <strong>{road?.name ?? `Rodovia #${segment.road_id}`}</strong>
               <br />
-              km {segment.km_start} – {segment.km_end} · {segment.direction}
+              km {segment.km_start} – {segment.km_end}
+              {segment.direction ? ` · ${segment.direction}` : ""}
               <br />
               criticidade: {priority ?? "sem inspeção"}
             </Tooltip>

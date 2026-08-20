@@ -1,6 +1,7 @@
 export interface Road {
   id: number;
   name: string;
+  concessionaire: string | null;
 }
 
 export interface Segment {
@@ -8,7 +9,7 @@ export interface Segment {
   road_id: number;
   km_start: number;
   km_end: number;
-  direction: string;
+  direction: string | null;
   lat_start: number | null;
   lng_start: number | null;
   lat_end: number | null;

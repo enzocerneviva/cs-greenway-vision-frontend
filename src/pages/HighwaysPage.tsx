@@ -10,8 +10,11 @@ import {
 import { listInspections } from "../api/inspections";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { SegmentsMap } from "../components/highways/SegmentsMap";
+import { HighwayStrip } from "../components/highways/HighwayStrip";
 import { LocationPicker, type PickedLocation } from "../components/highways/LocationPicker";
 import type { Inspection, Priority, Road, Segment } from "../api/types";
+
+type ViewMode = "blocks" | "map";
 
 const CARD_BORDER: Record<Priority | "NONE", string> = {
   LOW: "border-l-emerald-500",
@@ -25,6 +28,7 @@ export function HighwaysPage() {
   const segmentsState = useAsync(listSegments, []);
   const inspectionsState = useAsync(listInspections, []);
   const [selectedRoadId, setSelectedRoadId] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("blocks");
 
   function refetchAll() {
     roadsState.refetch();
@@ -48,6 +52,74 @@ export function HighwaysPage() {
     return segments.filter((s) => String(s.road_id) === selectedRoadId);
   }, [segmentsState.data, selectedRoadId]);
 
+  const loading = roadsState.loading || segmentsState.loading || inspectionsState.loading;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-slate-900">Rodovias</h1>
+        <div className="flex rounded-md border border-slate-300 overflow-hidden text-sm">
+          <button
+            type="button"
+            onClick={() => setViewMode("blocks")}
+            className={`px-3 py-1.5 ${
+              viewMode === "blocks" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+            }`}
+          >
+            Visão em blocos
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("map")}
+            className={`px-3 py-1.5 ${
+              viewMode === "map" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+            }`}
+          >
+            Mapa e cadastro
+          </button>
+        </div>
+      </div>
+
+      {loading && <p className="text-sm text-slate-500">Carregando...</p>}
+
+      {viewMode === "blocks" ? (
+        <HighwayStrip
+          roads={roadsState.data ?? []}
+          segments={segmentsState.data ?? []}
+          latestBySegment={latestBySegment}
+        />
+      ) : (
+        <MapAndCadastroView
+          roadsState={roadsState}
+          segmentsState={segmentsState}
+          selectedRoadId={selectedRoadId}
+          setSelectedRoadId={setSelectedRoadId}
+          visibleSegments={visibleSegments}
+          latestBySegment={latestBySegment}
+          refetchAll={refetchAll}
+        />
+      )}
+    </div>
+  );
+}
+
+function MapAndCadastroView({
+  roadsState,
+  segmentsState,
+  selectedRoadId,
+  setSelectedRoadId,
+  visibleSegments,
+  latestBySegment,
+  refetchAll,
+}: {
+  roadsState: ReturnType<typeof useAsync<Road[]>>;
+  segmentsState: ReturnType<typeof useAsync<Segment[]>>;
+  selectedRoadId: string;
+  setSelectedRoadId: (id: string) => void;
+  visibleSegments: Segment[];
+  latestBySegment: Map<number, Inspection>;
+  refetchAll: () => void;
+}) {
   return (
     <div className="space-y-6">
       <section>
@@ -77,16 +149,9 @@ export function HighwaysPage() {
         <CadastroPanel roads={roadsState.data ?? []} onCreated={refetchAll} />
 
         <section>
-          <h2 className="font-semibold text-slate-900 mb-4">
-            Trechos e última análise
-          </h2>
+          <h2 className="font-semibold text-slate-900 mb-4">Trechos e última análise</h2>
 
-          {(segmentsState.loading || inspectionsState.loading) && (
-            <p className="text-sm text-slate-500">Carregando...</p>
-          )}
-          {segmentsState.error && (
-            <p className="text-sm text-red-600">{segmentsState.error}</p>
-          )}
+          {segmentsState.error && <p className="text-sm text-red-600">{segmentsState.error}</p>}
           {segmentsState.data && visibleSegments.length === 0 && (
             <p className="text-sm text-slate-500">Nenhum trecho cadastrado ainda.</p>
           )}
@@ -154,7 +219,8 @@ function SegmentCard({
             {road?.name ?? `Rodovia #${segment.road_id}`}
           </p>
           <p className="text-xs text-slate-500">
-            km {segment.km_start} – {segment.km_end} · {segment.direction}
+            km {segment.km_start} – {segment.km_end}
+            {segment.direction ? ` · ${segment.direction}` : ""}
           </p>
         </div>
         <PriorityBadge priority={priority} />
@@ -220,6 +286,7 @@ function CadastroPanel({
   onCreated: () => void;
 }) {
   const [roadName, setRoadName] = useState("");
+  const [concessionaire, setConcessionaire] = useState("");
   const [roadSubmitting, setRoadSubmitting] = useState(false);
   const [roadError, setRoadError] = useState<string | null>(null);
 
@@ -239,8 +306,9 @@ function CadastroPanel({
     setRoadSubmitting(true);
     setRoadError(null);
     try {
-      await createRoad(roadName.trim());
+      await createRoad(roadName.trim(), concessionaire.trim() || undefined);
       setRoadName("");
+      setConcessionaire("");
       onCreated();
     } catch (err) {
       setRoadError(err instanceof Error ? err.message : String(err));
@@ -251,7 +319,7 @@ function CadastroPanel({
 
   async function handleCreateSegment(event: React.FormEvent) {
     event.preventDefault();
-    if (!segmentRoadId || !kmStart || !kmEnd || !direction.trim()) return;
+    if (!segmentRoadId || !kmStart || !kmEnd) return;
 
     setSegmentSubmitting(true);
     setSegmentError(null);
@@ -260,7 +328,7 @@ function CadastroPanel({
         road_id: Number(segmentRoadId),
         km_start: Number(kmStart),
         km_end: Number(kmEnd),
-        direction: direction.trim(),
+        direction: direction.trim() || undefined,
         ...(picked ?? {}),
       });
       setKmStart("");
@@ -287,6 +355,13 @@ function CadastroPanel({
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             value={roadName}
             onChange={(e) => setRoadName(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Concessionária (opcional)"
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            value={concessionaire}
+            onChange={(e) => setConcessionaire(e.target.value)}
           />
           {roadError && <p className="text-sm text-red-600">{roadError}</p>}
           <button
@@ -349,7 +424,7 @@ function CadastroPanel({
 
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">
-              Sentido
+              Sentido (opcional)
             </label>
             <input
               type="text"
@@ -373,9 +448,7 @@ function CadastroPanel({
 
           <button
             type="submit"
-            disabled={
-              !segmentRoadId || !kmStart || !kmEnd || !direction.trim() || segmentSubmitting
-            }
+            disabled={!segmentRoadId || !kmStart || !kmEnd || segmentSubmitting}
             className="w-full rounded-md bg-emerald-600 text-white text-sm font-medium py-2 disabled:opacity-50"
           >
             {segmentSubmitting ? "Salvando..." : "Cadastrar trecho"}

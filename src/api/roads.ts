@@ -5,11 +5,11 @@ export function listRoads() {
   return request<Road[]>("/roads");
 }
 
-export function createRoad(name: string) {
+export function createRoad(name: string, concessionaire?: string) {
   return request<Road>("/roads", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, concessionaire }),
   });
 }
 
@@ -21,7 +21,7 @@ export function createSegment(input: {
   road_id: number;
   km_start: number;
   km_end: number;
-  direction: string;
+  direction?: string;
   lat_start?: number;
   lng_start?: number;
   lat_end?: number;
