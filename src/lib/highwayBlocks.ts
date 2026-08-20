@@ -24,13 +24,15 @@ function worstCase(priorities: Priority[]): Priority | null {
  * (BLOCK_SIZE_KM), ancorados no km absoluto (não relativo ao trecho) —
  * bate com a convenção real da planilha (0+000, 0+500, 1+000...).
  *
- * Cada bloco herda a prioridade "pior caso" entre os frames da inspeção
- * mais recente do trecho que caem naquele intervalo de km. Bloco sem
- * nenhum frame mapeado fica com priority: null ("sem dado").
+ * Cada bloco pega o dado da inspeção mais recente que efetivamente cobre
+ * aquele km — não "a inspeção mais recente do trecho inteiro" (senão uma
+ * foto avulsa nova, que só cobre 1 bloco, apagaria a leitura de um vídeo
+ * mais antigo que cobria o resto do trecho). Bloco sem nenhum frame
+ * mapeado fica com priority: null ("sem dado").
  */
 export function buildHighwayBlocks(
   segments: Segment[],
-  latestBySegment: Map<number, Inspection>
+  inspectionsBySegment: Map<number, Inspection[]>
 ): HighwayBlock[] {
   if (segments.length === 0) return [];
 
@@ -52,13 +54,26 @@ export function buildHighwayBlocks(
       continue;
     }
 
-    const inspection = latestBySegment.get(segment.id) ?? null;
-    const frames = (inspection?.frame_analyses ?? []).filter(
+    const inspections = inspectionsBySegment.get(segment.id) ?? [];
+
+    // entre as inspeções que têm ao menos 1 frame nesse km, pega a mais recente
+    let bestInspection: Inspection | null = null;
+    for (const inspection of inspections) {
+      const hasFrameHere = inspection.frame_analyses.some(
+        (f) => f.estimated_km >= kmStart && f.estimated_km < kmEnd
+      );
+      if (!hasFrameHere) continue;
+      if (!bestInspection || inspection.created_at > bestInspection.created_at) {
+        bestInspection = inspection;
+      }
+    }
+
+    const frames = (bestInspection?.frame_analyses ?? []).filter(
       (f) => f.estimated_km >= kmStart && f.estimated_km < kmEnd
     );
     const priority = worstCase(frames.map((f) => f.priority));
 
-    blocks.push({ index: i, kmStart, kmEnd, segmentId: segment.id, priority, frames, inspection });
+    blocks.push({ index: i, kmStart, kmEnd, segmentId: segment.id, priority, frames, inspection: bestInspection });
   }
 
   return blocks;

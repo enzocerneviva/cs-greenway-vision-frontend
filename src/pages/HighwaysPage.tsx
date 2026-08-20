@@ -46,6 +46,16 @@ export function HighwaysPage() {
     return map;
   }, [inspectionsState.data]);
 
+  const inspectionsBySegment = useMemo(() => {
+    const map = new Map<number, Inspection[]>();
+    for (const inspection of inspectionsState.data ?? []) {
+      const list = map.get(inspection.segment_id) ?? [];
+      list.push(inspection);
+      map.set(inspection.segment_id, list);
+    }
+    return map;
+  }, [inspectionsState.data]);
+
   const visibleSegments = useMemo(() => {
     const segments = segmentsState.data ?? [];
     if (!selectedRoadId) return segments;
@@ -57,13 +67,15 @@ export function HighwaysPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-900">Rodovias</h1>
-        <div className="flex rounded-md border border-slate-300 overflow-hidden text-sm">
+        <h1 className="text-xl font-semibold text-slate-900">Rodovias</h1>
+        <div className="flex rounded-lg border border-slate-200 bg-slate-100 p-1 text-sm shadow-sm">
           <button
             type="button"
             onClick={() => setViewMode("blocks")}
-            className={`px-3 py-1.5 ${
-              viewMode === "blocks" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+            className={`px-4 py-1.5 rounded-md font-medium transition-all ${
+              viewMode === "blocks"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
             }`}
           >
             Visão em blocos
@@ -71,8 +83,10 @@ export function HighwaysPage() {
           <button
             type="button"
             onClick={() => setViewMode("map")}
-            className={`px-3 py-1.5 ${
-              viewMode === "map" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+            className={`px-4 py-1.5 rounded-md font-medium transition-all ${
+              viewMode === "map"
+                ? "bg-white text-slate-900 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
             }`}
           >
             Mapa e cadastro
@@ -86,7 +100,7 @@ export function HighwaysPage() {
         <HighwayStrip
           roads={roadsState.data ?? []}
           segments={segmentsState.data ?? []}
-          latestBySegment={latestBySegment}
+          inspectionsBySegment={inspectionsBySegment}
         />
       ) : (
         <MapAndCadastroView
