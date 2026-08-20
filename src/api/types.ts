@@ -9,6 +9,10 @@ export interface Segment {
   km_start: number;
   km_end: number;
   direction: string;
+  lat_start: number | null;
+  lng_start: number | null;
+  lat_end: number | null;
+  lng_end: number | null;
 }
 
 export type Priority = "LOW" | "MEDIUM" | "HIGH";

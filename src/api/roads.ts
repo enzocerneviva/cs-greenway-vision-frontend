@@ -22,6 +22,10 @@ export function createSegment(input: {
   km_start: number;
   km_end: number;
   direction: string;
+  lat_start?: number;
+  lng_start?: number;
+  lat_end?: number;
+  lng_end?: number;
 }) {
   return request<Segment>("/segments", {
     method: "POST",

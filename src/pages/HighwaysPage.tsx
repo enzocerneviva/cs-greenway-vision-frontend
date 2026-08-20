@@ -3,6 +3,7 @@ import { useAsync } from "../hooks/useAsync";
 import { createRoad, createSegment, listRoads, listSegments } from "../api/roads";
 import { listInspections } from "../api/inspections";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
+import { SegmentsMap } from "../components/highways/SegmentsMap";
 import type { Inspection, Priority, Road, Segment } from "../api/types";
 
 const CARD_BORDER: Record<Priority | "NONE", string> = {
@@ -16,6 +17,7 @@ export function HighwaysPage() {
   const roadsState = useAsync(listRoads, []);
   const segmentsState = useAsync(listSegments, []);
   const inspectionsState = useAsync(listInspections, []);
+  const [selectedRoadId, setSelectedRoadId] = useState("");
 
   function refetchAll() {
     roadsState.refetch();
@@ -33,41 +35,67 @@ export function HighwaysPage() {
     return map;
   }, [inspectionsState.data]);
 
+  const visibleSegments = useMemo(() => {
+    const segments = segmentsState.data ?? [];
+    if (!selectedRoadId) return segments;
+    return segments.filter((s) => String(s.road_id) === selectedRoadId);
+  }, [segmentsState.data, selectedRoadId]);
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
-      <CadastroPanel
-        roads={roadsState.data ?? []}
-        onCreated={refetchAll}
-      />
-
+    <div className="space-y-6">
       <section>
-        <h2 className="font-semibold text-slate-900 mb-4">
-          Trechos e última análise
-        </h2>
-
-        {(segmentsState.loading || inspectionsState.loading) && (
-          <p className="text-sm text-slate-500">Carregando...</p>
-        )}
-        {segmentsState.error && (
-          <p className="text-sm text-red-600">{segmentsState.error}</p>
-        )}
-        {segmentsState.data && segmentsState.data.length === 0 && (
-          <p className="text-sm text-slate-500">
-            Nenhum trecho cadastrado ainda.
-          </p>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {(segmentsState.data ?? []).map((segment) => (
-            <SegmentCard
-              key={segment.id}
-              segment={segment}
-              road={(roadsState.data ?? []).find((r) => r.id === segment.road_id)}
-              latestInspection={latestBySegment.get(segment.id)}
-            />
-          ))}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-slate-900">Mapa de criticidade</h2>
+          <select
+            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+            value={selectedRoadId}
+            onChange={(e) => setSelectedRoadId(e.target.value)}
+          >
+            <option value="">Todas as rodovias</option>
+            {(roadsState.data ?? []).map((road) => (
+              <option key={road.id} value={road.id}>
+                {road.name}
+              </option>
+            ))}
+          </select>
         </div>
+        <SegmentsMap
+          segments={visibleSegments}
+          roads={roadsState.data ?? []}
+          latestBySegment={latestBySegment}
+        />
       </section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
+        <CadastroPanel roads={roadsState.data ?? []} onCreated={refetchAll} />
+
+        <section>
+          <h2 className="font-semibold text-slate-900 mb-4">
+            Trechos e última análise
+          </h2>
+
+          {(segmentsState.loading || inspectionsState.loading) && (
+            <p className="text-sm text-slate-500">Carregando...</p>
+          )}
+          {segmentsState.error && (
+            <p className="text-sm text-red-600">{segmentsState.error}</p>
+          )}
+          {segmentsState.data && visibleSegments.length === 0 && (
+            <p className="text-sm text-slate-500">Nenhum trecho cadastrado ainda.</p>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {visibleSegments.map((segment) => (
+              <SegmentCard
+                key={segment.id}
+                segment={segment}
+                road={(roadsState.data ?? []).find((r) => r.id === segment.road_id)}
+                latestInspection={latestBySegment.get(segment.id)}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
@@ -83,6 +111,7 @@ function SegmentCard({
 }) {
   const priority = latestInspection?.priority ?? null;
   const borderClass = CARD_BORDER[priority ?? "NONE"];
+  const hasCoordinates = segment.lat_start != null;
 
   return (
     <div
@@ -107,6 +136,9 @@ function SegmentCard({
             ).toLocaleString("pt-BR")}`
           : "sem inspeções ainda"}
       </p>
+      {!hasCoordinates && (
+        <p className="text-xs text-amber-600 mt-1">sem coordenadas · não aparece no mapa</p>
+      )}
     </div>
   );
 }
@@ -126,6 +158,10 @@ function CadastroPanel({
   const [kmStart, setKmStart] = useState("");
   const [kmEnd, setKmEnd] = useState("");
   const [direction, setDirection] = useState("");
+  const [latStart, setLatStart] = useState("");
+  const [lngStart, setLngStart] = useState("");
+  const [latEnd, setLatEnd] = useState("");
+  const [lngEnd, setLngEnd] = useState("");
   const [segmentSubmitting, setSegmentSubmitting] = useState(false);
   const [segmentError, setSegmentError] = useState<string | null>(null);
 
@@ -150,6 +186,19 @@ function CadastroPanel({
     event.preventDefault();
     if (!segmentRoadId || !kmStart || !kmEnd || !direction.trim()) return;
 
+    const hasAnyCoordinate = [latStart, lngStart, latEnd, lngEnd].some(
+      (v) => v.trim() !== ""
+    );
+    const hasAllCoordinates = [latStart, lngStart, latEnd, lngEnd].every(
+      (v) => v.trim() !== ""
+    );
+    if (hasAnyCoordinate && !hasAllCoordinates) {
+      setSegmentError(
+        "Preencha as 4 coordenadas (início e fim) ou deixe todas em branco."
+      );
+      return;
+    }
+
     setSegmentSubmitting(true);
     setSegmentError(null);
     try {
@@ -158,10 +207,20 @@ function CadastroPanel({
         km_start: Number(kmStart),
         km_end: Number(kmEnd),
         direction: direction.trim(),
+        ...(hasAllCoordinates && {
+          lat_start: Number(latStart),
+          lng_start: Number(lngStart),
+          lat_end: Number(latEnd),
+          lng_end: Number(lngEnd),
+        }),
       });
       setKmStart("");
       setKmEnd("");
       setDirection("");
+      setLatStart("");
+      setLngStart("");
+      setLatEnd("");
+      setLngEnd("");
       onCreated();
     } catch (err) {
       setSegmentError(err instanceof Error ? err.message : String(err));
@@ -252,6 +311,46 @@ function CadastroPanel({
               value={direction}
               onChange={(e) => setDirection(e.target.value)}
             />
+          </div>
+
+          <div>
+            <p className="block text-sm font-medium text-slate-600 mb-1">
+              Coordenadas (opcional — necessário pra aparecer no mapa)
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <input
+                type="number"
+                step="any"
+                placeholder="lat início"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={latStart}
+                onChange={(e) => setLatStart(e.target.value)}
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="lng início"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={lngStart}
+                onChange={(e) => setLngStart(e.target.value)}
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="lat fim"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={latEnd}
+                onChange={(e) => setLatEnd(e.target.value)}
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="lng fim"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={lngEnd}
+                onChange={(e) => setLngEnd(e.target.value)}
+              />
+            </div>
           </div>
 
           {segmentError && (
