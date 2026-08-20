@@ -19,6 +19,8 @@ export interface Segment {
 
 export type Priority = "LOW" | "MEDIUM" | "HIGH";
 
+export type LaneDirection = "CAPITAL" | "INTERIOR";
+
 export interface FrameAnalysis {
   frame_index: number;
   timestamp_seconds: number;
@@ -36,6 +38,7 @@ export interface Inspection {
   measurement_unit: string | null;
   priority: Priority | null;
   model_version: string | null;
+  direction: LaneDirection | null;
   status: string;
   analyzed_at: string | null;
   created_at: string;

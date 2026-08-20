@@ -1,12 +1,19 @@
 import { useEffect, useMemo } from "react";
 import { MapContainer, Polyline, TileLayer, Tooltip, useMap } from "react-leaflet";
 import type { LatLngBoundsExpression, LatLngExpression } from "leaflet";
-import type { Inspection, Priority, Road, Segment } from "../../api/types";
+import type { Inspection, LaneDirection, Priority, Road, Segment } from "../../api/types";
 import { PRIORITY_COLORS } from "../../lib/priorityColors";
-import { buildHighwayBlocks } from "../../lib/highwayBlocks";
-import { createRoadKmMapper } from "../../lib/roadGeometry";
+import { buildHighwayBlocks, LANES, LANE_LABEL } from "../../lib/highwayBlocks";
+import { createRoadKmMapper, offsetPerpendicular } from "../../lib/roadGeometry";
 
 const DEFAULT_CENTER: LatLngExpression = [-22.9068, -43.3];
+
+// pista Capital desloca pra um lado, Interior pro outro — só separação
+// visual, não é a posição real das pistas.
+const LANE_OFFSET_KM: Record<LaneDirection, number> = {
+  CAPITAL: -0.08,
+  INTERIOR: 0.08,
+};
 
 interface ColoredLine {
   key: string;
@@ -34,20 +41,26 @@ export function SegmentsMap({
       if (road.geometry && road.geometry.length >= 2) {
         // traçado real do OSM: cada bloco de 500m vira um trechinho colorido
         // do traçado, na posição km real ao longo dele (início do traçado =
-        // km 0 — ver createRoadKmMapper).
+        // km 0 — ver createRoadKmMapper). Uma linha por sentido, deslocadas
+        // visualmente uma da outra (offsetPerpendicular).
         const mapper = createRoadKmMapper(road.geometry);
         const blocks = buildHighwayBlocks(roadSegments, inspectionsBySegment);
 
         for (const block of blocks) {
           if (block.segmentId === null) continue;
-          result.push({
-            key: `${road.id}-${block.index}`,
-            positions: mapper.sliceByKm(block.kmStart, block.kmEnd),
-            priority: block.priority,
-            tooltip: `${road.name} · km ${block.kmStart.toFixed(1)}–${block.kmEnd.toFixed(1)} · ${
-              block.priority ?? "sem inspeção"
-            }`,
-          });
+          const basePositions = mapper.sliceByKm(block.kmStart, block.kmEnd);
+
+          for (const lane of LANES) {
+            const laneData = block.lanes[lane];
+            result.push({
+              key: `${road.id}-${block.index}-${lane}`,
+              positions: offsetPerpendicular(basePositions, LANE_OFFSET_KM[lane]),
+              priority: laneData.priority,
+              tooltip: `${road.name} · km ${block.kmStart.toFixed(1)}–${block.kmEnd.toFixed(
+                1
+              )} · ${LANE_LABEL[lane]} · ${laneData.priority ?? "sem inspeção"}`,
+            });
+          }
         }
         continue;
       }
@@ -110,7 +123,7 @@ export function SegmentsMap({
             positions={line.positions}
             pathOptions={{
               color: PRIORITY_COLORS[line.priority ?? "NONE"],
-              weight: 5,
+              weight: 4,
               opacity: 0.85,
             }}
           >

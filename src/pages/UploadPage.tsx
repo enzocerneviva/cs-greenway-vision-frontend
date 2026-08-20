@@ -5,7 +5,8 @@ import { listRoads, listSegments } from "../api/roads";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { FrameCard } from "../components/shared/FrameCard";
 import { BlockRangePicker, type KmRange } from "../components/upload/BlockRangePicker";
-import type { Inspection } from "../api/types";
+import { LANE_LABEL } from "../lib/highwayBlocks";
+import type { Inspection, LaneDirection } from "../api/types";
 
 type MediaKind = "video" | "photo";
 
@@ -21,6 +22,7 @@ export function UploadPage() {
 
   const [roadId, setRoadId] = useState<string>("");
   const [segmentId, setSegmentId] = useState<string>("");
+  const [direction, setDirection] = useState<LaneDirection | "">("");
   const [mediaKind, setMediaKind] = useState<MediaKind>("video");
   const [range, setRange] = useState<KmRange | null>(null);
   const [rangePickerKey, setRangePickerKey] = useState(0);
@@ -36,13 +38,13 @@ export function UploadPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!segmentId || !file) return;
+    if (!segmentId || !file || !direction) return;
     if (mediaKind === "photo" && !range) return;
 
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await createInspection(Number(segmentId), file, range ?? undefined);
+      await createInspection(Number(segmentId), file, direction, range ?? undefined);
       setFile(null);
       setSegmentId("");
       setRange(null);
@@ -99,6 +101,26 @@ export function UploadPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 mb-1">
+              Sentido da pista
+            </label>
+            <div className="flex rounded-md border border-slate-300 overflow-hidden text-sm">
+              {(["CAPITAL", "INTERIOR"] as const).map((lane) => (
+                <button
+                  key={lane}
+                  type="button"
+                  onClick={() => setDirection(lane)}
+                  className={`flex-1 py-1.5 ${
+                    direction === lane ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+                  }`}
+                >
+                  {LANE_LABEL[lane]}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -172,7 +194,11 @@ export function UploadPage() {
           <button
             type="submit"
             disabled={
-              !segmentId || !file || submitting || (mediaKind === "photo" && !range)
+              !segmentId ||
+              !file ||
+              !direction ||
+              submitting ||
+              (mediaKind === "photo" && !range)
             }
             className="w-full rounded-md bg-emerald-600 text-white text-sm font-medium py-2 disabled:opacity-50"
           >
@@ -231,7 +257,8 @@ function InspectionRow({ inspection }: { inspection: Inspection }) {
             )}
           </p>
           <p className="text-xs text-slate-500">
-            status: {inspection.status} ·{" "}
+            status: {inspection.status}
+            {inspection.direction ? ` · ${LANE_LABEL[inspection.direction]}` : ""} ·{" "}
             {new Date(inspection.created_at).toLocaleString("pt-BR")}
           </p>
         </div>

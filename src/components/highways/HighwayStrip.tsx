@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { Priority, Road, Segment, Inspection } from "../../api/types";
-import { buildHighwayBlocks, type HighwayBlock } from "../../lib/highwayBlocks";
+import { buildHighwayBlocks, LANES, LANE_LABEL, type HighwayBlock } from "../../lib/highwayBlocks";
 
 const PRIORITY_BG: Record<Priority, string> = {
   LOW: "bg-emerald-500 hover:bg-emerald-600",
@@ -20,6 +20,15 @@ interface HoverState {
   block: HighwayBlock;
   x: number; // centro horizontal, em px, relativo à viewport
   y: number; // topo do bloco, em px, relativo à viewport
+}
+
+function worstBlockPriority(block: HighwayBlock): Priority | null {
+  const priorities = LANES.map((lane) => block.lanes[lane].priority).filter(
+    (p): p is Priority => p !== null
+  );
+  if (priorities.length === 0) return null;
+  const severity: Record<Priority, number> = { LOW: 0, MEDIUM: 1, HIGH: 2 };
+  return priorities.reduce((worst, p) => (severity[p] > severity[worst] ? p : worst));
 }
 
 export function HighwayStrip({
@@ -52,7 +61,8 @@ export function HighwayStrip({
 
   const visibleBlocks = useMemo(() => {
     return blocks.filter((block) => {
-      if (priorityFilter && block.priority !== priorityFilter) return false;
+      const worst = worstBlockPriority(block);
+      if (priorityFilter && worst !== priorityFilter) return false;
       if (kmSearch.trim()) {
         const km = Number(kmSearch);
         if (!Number.isNaN(km) && (km < block.kmStart || km >= block.kmEnd)) return false;
@@ -64,7 +74,10 @@ export function HighwayStrip({
   const counts = useMemo(() => {
     const result: Record<Priority, number> = { LOW: 0, MEDIUM: 0, HIGH: 0 };
     for (const block of blocks) {
-      if (block.priority) result[block.priority] += 1;
+      for (const lane of LANES) {
+        const p = block.lanes[lane].priority;
+        if (p) result[p] += 1;
+      }
     }
     return result;
   }, [blocks]);
@@ -136,8 +149,18 @@ export function HighwayStrip({
         </div>
       </div>
 
+      {/* Legenda dos sentidos */}
+      <div className="flex items-center gap-4 px-6 text-xs text-slate-400">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-3 rounded-sm bg-slate-300" /> topo = {LANE_LABEL.CAPITAL}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-3 rounded-sm bg-slate-400" /> base = {LANE_LABEL.INTERIOR}
+        </span>
+      </div>
+
       {/* Faixa horizontal de blocos */}
-      <div className="px-6 pb-5 overflow-x-auto">
+      <div className="px-6 pb-5 pt-2 overflow-x-auto">
         <div className="flex gap-1 w-max pb-3 pt-1">
           {visibleBlocks.map((block) => (
             <BlockButton
@@ -170,7 +193,7 @@ function BlockButton({
   onOpen: () => void;
   onHoverChange: (hover: HoverState | null) => void;
 }) {
-  const ref = useRef<HTMLButtonElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   function handleEnter() {
     const rect = ref.current?.getBoundingClientRect();
@@ -179,18 +202,31 @@ function BlockButton({
   }
 
   return (
-    <button
+    <div
       ref={ref}
-      type="button"
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
+      onKeyDown={(e) => e.key === "Enter" && onOpen()}
       onMouseEnter={handleEnter}
       onMouseLeave={() => onHoverChange(null)}
-      className={`h-20 w-7 shrink-0 rounded-md shadow-sm transition-all ${
-        block.priority
-          ? `${PRIORITY_BG[block.priority]} shadow-md`
-          : "bg-slate-100 hover:bg-slate-200 border border-slate-200"
-      }`}
-    />
+      className="flex flex-col gap-0.5 w-7 shrink-0 cursor-pointer rounded-md overflow-hidden shadow-sm"
+    >
+      <span
+        className={`h-9 w-full block transition-colors ${
+          block.lanes.CAPITAL.priority
+            ? PRIORITY_BG[block.lanes.CAPITAL.priority]
+            : "bg-slate-100 hover:bg-slate-200"
+        }`}
+      />
+      <span
+        className={`h-9 w-full block transition-colors ${
+          block.lanes.INTERIOR.priority
+            ? PRIORITY_BG[block.lanes.INTERIOR.priority]
+            : "bg-slate-100 hover:bg-slate-200"
+        }`}
+      />
+    </div>
   );
 }
 
@@ -202,21 +238,20 @@ function BlockTooltip({ hover }: { hover: HoverState }) {
 
   return createPortal(
     <div
-      className="pointer-events-none fixed z-50 w-48 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 text-white text-xs p-3 shadow-xl"
+      className="pointer-events-none fixed z-50 w-56 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 text-white text-xs p-3 shadow-xl"
       style={{ left: x, top: y - 10 }}
     >
       <p className="font-semibold">
         km {block.kmStart.toFixed(1)} – {block.kmEnd.toFixed(1)}
       </p>
-      <p className="text-slate-300 mt-0.5">
-        {block.priority ? `Criticidade ${PRIORITY_LABEL[block.priority]}` : "Sem dado"}
-      </p>
-      {block.frames.length > 0 && (
-        <p className="text-slate-400 mt-0.5">
-          {block.frames.length} frame{block.frames.length > 1 ? "s" : ""} analisado
-          {block.frames.length > 1 ? "s" : ""}
-        </p>
-      )}
+      <div className="mt-1.5 space-y-1">
+        {LANES.map((lane) => (
+          <p key={lane} className="text-slate-300">
+            {LANE_LABEL[lane]}:{" "}
+            {block.lanes[lane].priority ? PRIORITY_LABEL[block.lanes[lane].priority!] : "sem dado"}
+          </p>
+        ))}
+      </div>
       <p className="text-emerald-400 mt-1.5 font-medium">Clique pra ver detalhes →</p>
       <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
     </div>,

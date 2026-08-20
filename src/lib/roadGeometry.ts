@@ -44,3 +44,30 @@ export function createRoadKmMapper(geometry: [number, number][]) {
     },
   };
 }
+
+/**
+ * Desloca uma linha perpendicularmente à sua própria direção local, por
+ * uma distância fixa (em km) — usado pra desenhar as duas pistas de uma
+ * rodovia (Capital/Interior) como duas linhas paralelas visualmente
+ * separadas, já que só reconstruímos um traçado central único a partir
+ * do OSM (ver geocoding_service.py).
+ */
+export function offsetPerpendicular(
+  points: [number, number][],
+  offsetKm: number
+): [number, number][] {
+  if (points.length < 2) return points;
+  const offsetDeg = offsetKm / KM_PER_DEGREE;
+
+  return points.map((point, i) => {
+    const prev = points[Math.max(0, i - 1)];
+    const next = points[Math.min(points.length - 1, i + 1)];
+    const dLat = next[0] - prev[0];
+    const dLng = next[1] - prev[1];
+    const len = Math.hypot(dLat, dLng) || 1;
+    // vetor perpendicular unitário (rotaciona a tangente 90°)
+    const normalLat = -dLng / len;
+    const normalLng = dLat / len;
+    return [point[0] + normalLat * offsetDeg, point[1] + normalLng * offsetDeg];
+  });
+}
