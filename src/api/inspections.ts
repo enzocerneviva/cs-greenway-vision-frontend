@@ -9,6 +9,10 @@ export function getInspection(id: number) {
   return request<Inspection>(`/inspections/${id}`);
 }
 
+export function resetInspections() {
+  return request<void>("/inspections", { method: "DELETE" });
+}
+
 export function createInspection(
   segmentId: number,
   file: File,
