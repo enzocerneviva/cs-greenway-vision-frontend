@@ -1,9 +1,16 @@
 import { useMemo, useState } from "react";
 import { useAsync } from "../hooks/useAsync";
-import { createRoad, createSegment, listRoads, listSegments } from "../api/roads";
+import {
+  createRoad,
+  createSegment,
+  listRoads,
+  listSegments,
+  updateSegmentLocation,
+} from "../api/roads";
 import { listInspections } from "../api/inspections";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { SegmentsMap } from "../components/highways/SegmentsMap";
+import { LocationPicker, type PickedLocation } from "../components/highways/LocationPicker";
 import type { Inspection, Priority, Road, Segment } from "../api/types";
 
 const CARD_BORDER: Record<Priority | "NONE", string> = {
@@ -91,6 +98,7 @@ export function HighwaysPage() {
                 segment={segment}
                 road={(roadsState.data ?? []).find((r) => r.id === segment.road_id)}
                 latestInspection={latestBySegment.get(segment.id)}
+                onLocationSaved={refetchAll}
               />
             ))}
           </div>
@@ -104,14 +112,37 @@ function SegmentCard({
   segment,
   road,
   latestInspection,
+  onLocationSaved,
 }: {
   segment: Segment;
   road: Road | undefined;
   latestInspection: Inspection | undefined;
+  onLocationSaved: () => void;
 }) {
   const priority = latestInspection?.priority ?? null;
   const borderClass = CARD_BORDER[priority ?? "NONE"];
   const hasCoordinates = segment.lat_start != null;
+
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [picked, setPicked] = useState<PickedLocation | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSaveLocation() {
+    if (!picked) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await updateSegmentLocation(segment.id, picked);
+      setEditingLocation(false);
+      setPicked(null);
+      onLocationSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div
@@ -136,8 +167,46 @@ function SegmentCard({
             ).toLocaleString("pt-BR")}`
           : "sem inspeções ainda"}
       </p>
-      {!hasCoordinates && (
-        <p className="text-xs text-amber-600 mt-1">sem coordenadas · não aparece no mapa</p>
+
+      {!hasCoordinates && !editingLocation && (
+        <div className="mt-2">
+          <p className="text-xs text-amber-600">sem coordenadas · não aparece no mapa</p>
+          <button
+            type="button"
+            onClick={() => setEditingLocation(true)}
+            className="text-xs text-emerald-700 underline mt-1"
+          >
+            Definir localização no mapa
+          </button>
+        </div>
+      )}
+
+      {editingLocation && (
+        <div className="mt-3 space-y-2">
+          <LocationPicker onChange={setPicked} />
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!picked || saving}
+              onClick={handleSaveLocation}
+              className="flex-1 rounded-md bg-emerald-600 text-white text-xs font-medium py-1.5 disabled:opacity-50"
+            >
+              {saving ? "Salvando..." : "Salvar localização"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingLocation(false);
+                setPicked(null);
+                setError(null);
+              }}
+              className="rounded-md border border-slate-300 text-xs font-medium py-1.5 px-3"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -158,10 +227,8 @@ function CadastroPanel({
   const [kmStart, setKmStart] = useState("");
   const [kmEnd, setKmEnd] = useState("");
   const [direction, setDirection] = useState("");
-  const [latStart, setLatStart] = useState("");
-  const [lngStart, setLngStart] = useState("");
-  const [latEnd, setLatEnd] = useState("");
-  const [lngEnd, setLngEnd] = useState("");
+  const [picked, setPicked] = useState<PickedLocation | null>(null);
+  const [pickerKey, setPickerKey] = useState(0);
   const [segmentSubmitting, setSegmentSubmitting] = useState(false);
   const [segmentError, setSegmentError] = useState<string | null>(null);
 
@@ -186,19 +253,6 @@ function CadastroPanel({
     event.preventDefault();
     if (!segmentRoadId || !kmStart || !kmEnd || !direction.trim()) return;
 
-    const hasAnyCoordinate = [latStart, lngStart, latEnd, lngEnd].some(
-      (v) => v.trim() !== ""
-    );
-    const hasAllCoordinates = [latStart, lngStart, latEnd, lngEnd].every(
-      (v) => v.trim() !== ""
-    );
-    if (hasAnyCoordinate && !hasAllCoordinates) {
-      setSegmentError(
-        "Preencha as 4 coordenadas (início e fim) ou deixe todas em branco."
-      );
-      return;
-    }
-
     setSegmentSubmitting(true);
     setSegmentError(null);
     try {
@@ -207,20 +261,13 @@ function CadastroPanel({
         km_start: Number(kmStart),
         km_end: Number(kmEnd),
         direction: direction.trim(),
-        ...(hasAllCoordinates && {
-          lat_start: Number(latStart),
-          lng_start: Number(lngStart),
-          lat_end: Number(latEnd),
-          lng_end: Number(lngEnd),
-        }),
+        ...(picked ?? {}),
       });
       setKmStart("");
       setKmEnd("");
       setDirection("");
-      setLatStart("");
-      setLngStart("");
-      setLatEnd("");
-      setLngEnd("");
+      setPicked(null);
+      setPickerKey((k) => k + 1);
       onCreated();
     } catch (err) {
       setSegmentError(err instanceof Error ? err.message : String(err));
@@ -315,42 +362,9 @@ function CadastroPanel({
 
           <div>
             <p className="block text-sm font-medium text-slate-600 mb-1">
-              Coordenadas (opcional — necessário pra aparecer no mapa)
+              Localização no mapa (opcional — necessário pra aparecer no mapa)
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              <input
-                type="number"
-                step="any"
-                placeholder="lat início"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={latStart}
-                onChange={(e) => setLatStart(e.target.value)}
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="lng início"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={lngStart}
-                onChange={(e) => setLngStart(e.target.value)}
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="lat fim"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={latEnd}
-                onChange={(e) => setLatEnd(e.target.value)}
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="lng fim"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={lngEnd}
-                onChange={(e) => setLngEnd(e.target.value)}
-              />
-            </div>
+            <LocationPicker key={pickerKey} onChange={setPicked} />
           </div>
 
           {segmentError && (

@@ -33,3 +33,19 @@ export function createSegment(input: {
     body: JSON.stringify(input),
   });
 }
+
+export function updateSegmentLocation(
+  segmentId: number,
+  location: {
+    lat_start: number;
+    lng_start: number;
+    lat_end: number;
+    lng_end: number;
+  }
+) {
+  return request<Segment>(`/segments/${segmentId}/location`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(location),
+  });
+}
