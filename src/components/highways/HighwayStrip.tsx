@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Priority, Road, Segment, Inspection } from "../../api/types";
 import { buildHighwayBlocks, type HighwayBlock } from "../../lib/highwayBlocks";
+import { mediaUrl } from "../../api/client";
 
 const PRIORITY_BG: Record<Priority, string> = {
   LOW: "bg-emerald-500 hover:bg-emerald-400",
@@ -199,13 +200,21 @@ function BlockDetail({ block }: { block: HighwayBlock }) {
               key={frame.frame_index}
               className="shrink-0 w-28 rounded-md bg-slate-900 border border-slate-800 p-2"
             >
-              <div
-                className={`h-14 w-full rounded ${
-                  PRIORITY_BG[frame.priority].split(" ")[0]
-                } opacity-30 flex items-center justify-center text-[10px] text-slate-950 font-medium`}
-              >
-                sem imagem
-              </div>
+              {frame.image_path ? (
+                <img
+                  src={mediaUrl(frame.image_path)}
+                  alt={`Frame em km ${frame.estimated_km.toFixed(2)}`}
+                  className="h-14 w-full rounded object-cover"
+                />
+              ) : (
+                <div
+                  className={`h-14 w-full rounded ${
+                    PRIORITY_BG[frame.priority].split(" ")[0]
+                  } opacity-30 flex items-center justify-center text-[10px] text-slate-950 font-medium`}
+                >
+                  sem imagem
+                </div>
+              )}
               <p className="text-[10px] text-slate-400 mt-1">km {frame.estimated_km.toFixed(2)}</p>
               <p className="text-[10px] text-slate-500">
                 verde {frame.green_percent.toFixed(1)}% · {PRIORITY_LABEL[frame.priority]}

@@ -24,6 +24,7 @@ export interface FrameAnalysis {
   estimated_km: number;
   green_percent: number;
   priority: Priority;
+  image_path: string | null;
 }
 
 export interface Inspection {

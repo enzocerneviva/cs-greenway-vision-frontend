@@ -11,4 +11,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export { request, API_BASE_URL };
+function mediaUrl(relativePath: string): string {
+  return `${API_BASE_URL}/${relativePath}`;
+}
+
+export { request, API_BASE_URL, mediaUrl };
