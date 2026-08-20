@@ -4,7 +4,7 @@ import { createInspection, listInspections } from "../api/inspections";
 import { listRoads, listSegments } from "../api/roads";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { BLOCK_SIZE_KM } from "../lib/highwayBlocks";
-import { mediaUrl } from "../api/client";
+import { FrameCard } from "../components/shared/FrameCard";
 import type { Inspection } from "../api/types";
 
 type MediaKind = "video" | "photo";
@@ -254,28 +254,7 @@ function InspectionRow({ inspection }: { inspection: Inspection }) {
       {expanded && (
         <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
           {inspection.frame_analyses.map((frame) => (
-            <div
-              key={frame.frame_index}
-              className="shrink-0 w-32 rounded-lg bg-slate-50 border border-slate-200 p-2.5"
-            >
-              {frame.image_path ? (
-                <img
-                  src={mediaUrl(frame.image_path)}
-                  alt={`Frame em km ${frame.estimated_km.toFixed(2)}`}
-                  className="h-16 w-full rounded-md object-cover"
-                />
-              ) : (
-                <div className="h-16 w-full rounded-md bg-slate-200 flex items-center justify-center text-[10px] text-slate-500">
-                  sem imagem
-                </div>
-              )}
-              <p className="text-[11px] text-slate-500 mt-1.5">
-                km {frame.estimated_km.toFixed(2)}
-              </p>
-              <p className="text-[11px] text-slate-400">
-                verde {frame.green_percent.toFixed(1)}% · {frame.priority}
-              </p>
-            </div>
+            <FrameCard key={frame.frame_index} frame={frame} />
           ))}
         </div>
       )}

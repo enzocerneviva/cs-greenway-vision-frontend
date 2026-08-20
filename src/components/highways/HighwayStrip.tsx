@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import type { Priority, Road, Segment, Inspection } from "../../api/types";
 import { buildHighwayBlocks, type HighwayBlock } from "../../lib/highwayBlocks";
-import { mediaUrl } from "../../api/client";
 
 const PRIORITY_BG: Record<Priority, string> = {
   LOW: "bg-emerald-500 hover:bg-emerald-600",
@@ -15,6 +16,12 @@ const PRIORITY_LABEL: Record<Priority, string> = {
   HIGH: "Alta",
 };
 
+interface HoverState {
+  block: HighwayBlock;
+  x: number; // centro horizontal, em px, relativo à viewport
+  y: number; // topo do bloco, em px, relativo à viewport
+}
+
 export function HighwayStrip({
   roads,
   segments,
@@ -24,10 +31,11 @@ export function HighwayStrip({
   segments: Segment[];
   inspectionsBySegment: Map<number, Inspection[]>;
 }) {
+  const navigate = useNavigate();
   const [selectedRoadId, setSelectedRoadId] = useState<number | null>(roads[0]?.id ?? null);
   const [priorityFilter, setPriorityFilter] = useState<Priority | "">("");
   const [kmSearch, setKmSearch] = useState("");
-  const [selectedBlock, setSelectedBlock] = useState<HighwayBlock | null>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
 
   const activeRoadId = selectedRoadId ?? roads[0]?.id ?? null;
   const activeRoad = roads.find((r) => r.id === activeRoadId) ?? null;
@@ -61,6 +69,11 @@ export function HighwayStrip({
     return result;
   }, [blocks]);
 
+  function openBlock(block: HighwayBlock) {
+    if (!activeRoadId) return;
+    navigate(`/highways/${activeRoadId}/trecho/${block.kmStart.toFixed(1)}`);
+  }
+
   if (roads.length === 0) {
     return (
       <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-10 text-center text-sm text-slate-500">
@@ -77,10 +90,7 @@ export function HighwayStrip({
           <button
             key={road.id}
             type="button"
-            onClick={() => {
-              setSelectedRoadId(road.id);
-              setSelectedBlock(null);
-            }}
+            onClick={() => setSelectedRoadId(road.id)}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
               road.id === activeRoadId
                 ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20"
@@ -127,25 +137,14 @@ export function HighwayStrip({
       </div>
 
       {/* Faixa horizontal de blocos */}
-      <div className="px-6 pb-3 overflow-x-auto">
+      <div className="px-6 pb-5 overflow-x-auto">
         <div className="flex gap-1 w-max pb-3 pt-1">
           {visibleBlocks.map((block) => (
-            <button
+            <BlockButton
               key={block.index}
-              type="button"
-              title={`km ${block.kmStart.toFixed(1)}–${block.kmEnd.toFixed(1)} · ${
-                block.priority ? PRIORITY_LABEL[block.priority] : "sem dado"
-              }`}
-              onClick={() => setSelectedBlock(block)}
-              className={`h-20 w-7 shrink-0 rounded-md shadow-sm transition-all ${
-                block.priority
-                  ? `${PRIORITY_BG[block.priority]} shadow-md`
-                  : "bg-slate-100 hover:bg-slate-200 border border-slate-200"
-              } ${
-                selectedBlock?.index === block.index
-                  ? "ring-2 ring-offset-2 ring-slate-900 scale-y-105"
-                  : ""
-              }`}
+              block={block}
+              onOpen={() => openBlock(block)}
+              onHoverChange={setHover}
             />
           ))}
         </div>
@@ -157,17 +156,71 @@ export function HighwayStrip({
         )}
       </div>
 
-      {/* Painel de detalhe */}
-      <div className="border-t border-slate-100 bg-slate-50 px-6 py-5">
-        {selectedBlock ? (
-          <BlockDetail block={selectedBlock} />
-        ) : (
-          <p className="text-sm text-slate-500">
-            Clique em um bloco pra ver os detalhes daquele trecho de 500m.
-          </p>
-        )}
-      </div>
+      {hover && <BlockTooltip hover={hover} />}
     </div>
+  );
+}
+
+function BlockButton({
+  block,
+  onOpen,
+  onHoverChange,
+}: {
+  block: HighwayBlock;
+  onOpen: () => void;
+  onHoverChange: (hover: HoverState | null) => void;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+
+  function handleEnter() {
+    const rect = ref.current?.getBoundingClientRect();
+    if (!rect) return;
+    onHoverChange({ block, x: rect.left + rect.width / 2, y: rect.top });
+  }
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onOpen}
+      onMouseEnter={handleEnter}
+      onMouseLeave={() => onHoverChange(null)}
+      className={`h-20 w-7 shrink-0 rounded-md shadow-sm transition-all ${
+        block.priority
+          ? `${PRIORITY_BG[block.priority]} shadow-md`
+          : "bg-slate-100 hover:bg-slate-200 border border-slate-200"
+      }`}
+    />
+  );
+}
+
+// Renderizado via portal em document.body — a faixa de blocos tem
+// overflow-x-auto, que corta (também no eixo vertical, por regra do CSS)
+// qualquer coisa posicionada dentro dela que ultrapasse a borda.
+function BlockTooltip({ hover }: { hover: HoverState }) {
+  const { block, x, y } = hover;
+
+  return createPortal(
+    <div
+      className="pointer-events-none fixed z-50 w-48 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 text-white text-xs p-3 shadow-xl"
+      style={{ left: x, top: y - 10 }}
+    >
+      <p className="font-semibold">
+        km {block.kmStart.toFixed(1)} – {block.kmEnd.toFixed(1)}
+      </p>
+      <p className="text-slate-300 mt-0.5">
+        {block.priority ? `Criticidade ${PRIORITY_LABEL[block.priority]}` : "Sem dado"}
+      </p>
+      {block.frames.length > 0 && (
+        <p className="text-slate-400 mt-0.5">
+          {block.frames.length} frame{block.frames.length > 1 ? "s" : ""} analisado
+          {block.frames.length > 1 ? "s" : ""}
+        </p>
+      )}
+      <p className="text-emerald-400 mt-1.5 font-medium">Clique pra ver detalhes →</p>
+      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900" />
+    </div>,
+    document.body
   );
 }
 
@@ -177,64 +230,5 @@ function StatDot({ color, count }: { color: string; count: number }) {
       <span className={`h-2.5 w-2.5 rounded-full ${color}`} />
       {count}
     </span>
-  );
-}
-
-function BlockDetail({ block }: { block: HighwayBlock }) {
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-base font-semibold text-slate-900">
-            km {block.kmStart.toFixed(1)} – {block.kmEnd.toFixed(1)}
-          </p>
-          <p className="text-sm text-slate-500">
-            {block.priority
-              ? `Criticidade ${PRIORITY_LABEL[block.priority]}`
-              : "Sem inspeção cobrindo esse trecho ainda"}
-          </p>
-        </div>
-        {block.inspection && block.frames.length > 0 && (
-          <p className="text-xs text-slate-400">
-            última inspeção: {new Date(block.inspection.created_at).toLocaleString("pt-BR")}
-          </p>
-        )}
-      </div>
-
-      {block.frames.length > 0 ? (
-        <div className="flex gap-3 overflow-x-auto pb-1">
-          {block.frames.map((frame) => (
-            <div
-              key={frame.frame_index}
-              className="shrink-0 w-32 rounded-lg bg-white border border-slate-200 shadow-sm p-2.5"
-            >
-              {frame.image_path ? (
-                <img
-                  src={mediaUrl(frame.image_path)}
-                  alt={`Frame em km ${frame.estimated_km.toFixed(2)}`}
-                  className="h-16 w-full rounded-md object-cover"
-                />
-              ) : (
-                <div
-                  className={`h-16 w-full rounded-md ${
-                    PRIORITY_BG[frame.priority].split(" ")[0]
-                  } opacity-20 flex items-center justify-center text-[10px] text-slate-600 font-medium`}
-                >
-                  sem imagem
-                </div>
-              )}
-              <p className="text-[11px] text-slate-500 mt-1.5">
-                km {frame.estimated_km.toFixed(2)}
-              </p>
-              <p className="text-[11px] text-slate-400">
-                verde {frame.green_percent.toFixed(1)}% · {PRIORITY_LABEL[frame.priority]}
-              </p>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-slate-400">Nenhum frame de inspeção mapeado pra esse bloco.</p>
-      )}
-    </div>
   );
 }
