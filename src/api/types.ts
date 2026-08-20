@@ -24,6 +24,7 @@ export interface FrameAnalysis {
 export interface Inspection {
   id: number;
   video_id: number;
+  segment_id: number;
   measurement_value: number | null;
   measurement_unit: string | null;
   priority: Priority | null;

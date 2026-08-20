@@ -1,13 +1,5 @@
 import { request } from "./client";
-import type { Inspection, Road, Segment } from "./types";
-
-export function listRoads() {
-  return request<Road[]>("/roads");
-}
-
-export function listSegments() {
-  return request<Segment[]>("/segments");
-}
+import type { Inspection } from "./types";
 
 export function listInspections() {
   return request<Inspection[]>("/inspections");

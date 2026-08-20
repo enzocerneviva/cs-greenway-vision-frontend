@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { useAsync } from "../hooks/useAsync";
-import {
-  createInspection,
-  listInspections,
-  listRoads,
-  listSegments,
-} from "../api/inspections";
+import { createInspection, listInspections } from "../api/inspections";
+import { listRoads, listSegments } from "../api/roads";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import type { Inspection } from "../api/types";
 
