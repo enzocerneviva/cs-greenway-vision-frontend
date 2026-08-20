@@ -160,7 +160,7 @@ function MapAndCadastroView({
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6">
-        <CadastroPanel roads={roadsState.data ?? []} onCreated={refetchAll} />
+        <CadastroPanel onCreated={refetchAll} />
 
         <section>
           <h2 className="font-semibold text-slate-900 mb-4">Trechos e última análise</h2>
@@ -293,182 +293,101 @@ function SegmentCard({
 }
 
 function CadastroPanel({
-  roads,
   onCreated,
 }: {
-  roads: Road[];
   onCreated: () => void;
 }) {
   const [roadName, setRoadName] = useState("");
   const [concessionaire, setConcessionaire] = useState("");
-  const [roadSubmitting, setRoadSubmitting] = useState(false);
-  const [roadError, setRoadError] = useState<string | null>(null);
-
-  const [segmentRoadId, setSegmentRoadId] = useState("");
   const [kmStart, setKmStart] = useState("");
   const [kmEnd, setKmEnd] = useState("");
-  const [direction, setDirection] = useState("");
-  const [picked, setPicked] = useState<PickedLocation | null>(null);
-  const [pickerKey, setPickerKey] = useState(0);
-  const [segmentSubmitting, setSegmentSubmitting] = useState(false);
-  const [segmentError, setSegmentError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  async function handleCreateRoad(event: React.FormEvent) {
+  async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
-    if (!roadName.trim()) return;
+    if (!roadName.trim() || !kmStart || !kmEnd) return;
 
-    setRoadSubmitting(true);
-    setRoadError(null);
+    setSubmitting(true);
+    setError(null);
     try {
-      await createRoad(roadName.trim(), concessionaire.trim() || undefined);
-      setRoadName("");
-      setConcessionaire("");
-      onCreated();
-    } catch (err) {
-      setRoadError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setRoadSubmitting(false);
-    }
-  }
-
-  async function handleCreateSegment(event: React.FormEvent) {
-    event.preventDefault();
-    if (!segmentRoadId || !kmStart || !kmEnd) return;
-
-    setSegmentSubmitting(true);
-    setSegmentError(null);
-    try {
+      const road = await createRoad(roadName.trim(), concessionaire.trim() || undefined);
       await createSegment({
-        road_id: Number(segmentRoadId),
+        road_id: road.id,
         km_start: Number(kmStart),
         km_end: Number(kmEnd),
-        direction: direction.trim() || undefined,
-        ...(picked ?? {}),
       });
+      setRoadName("");
+      setConcessionaire("");
       setKmStart("");
       setKmEnd("");
-      setDirection("");
-      setPicked(null);
-      setPickerKey((k) => k + 1);
       onCreated();
     } catch (err) {
-      setSegmentError(err instanceof Error ? err.message : String(err));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setSegmentSubmitting(false);
+      setSubmitting(false);
     }
   }
 
   return (
-    <div className="space-y-6">
-      <section className="bg-white rounded-lg border border-slate-200 p-5">
-        <h2 className="font-semibold text-slate-900 mb-4">Nova rodovia</h2>
-        <form onSubmit={handleCreateRoad} className="space-y-3">
-          <input
-            type="text"
-            placeholder="Nome da rodovia (ex: BR-101)"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={roadName}
-            onChange={(e) => setRoadName(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Concessionária (opcional)"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={concessionaire}
-            onChange={(e) => setConcessionaire(e.target.value)}
-          />
-          {roadError && <p className="text-sm text-red-600">{roadError}</p>}
-          <button
-            type="submit"
-            disabled={!roadName.trim() || roadSubmitting}
-            className="w-full rounded-md bg-emerald-600 text-white text-sm font-medium py-2 disabled:opacity-50"
-          >
-            {roadSubmitting ? "Salvando..." : "Cadastrar rodovia"}
-          </button>
-        </form>
-      </section>
-
-      <section className="bg-white rounded-lg border border-slate-200 p-5">
-        <h2 className="font-semibold text-slate-900 mb-4">Novo trecho</h2>
-        <form onSubmit={handleCreateSegment} className="space-y-3">
+    <section className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
+      <h2 className="font-semibold text-slate-900 mb-1">Nova rodovia</h2>
+      <p className="text-xs text-slate-500 mb-4">
+        Nome + o intervalo de km que ela abrange. A divisão em blocos de 500m e o mapa são
+        gerados automaticamente a partir disso.
+      </p>
+      <form onSubmit={handleCreate} className="space-y-3">
+        <input
+          type="text"
+          placeholder="Nome da rodovia (ex: SP-330)"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          value={roadName}
+          onChange={(e) => setRoadName(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="Concessionária (opcional)"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          value={concessionaire}
+          onChange={(e) => setConcessionaire(e.target.value)}
+        />
+        <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">
-              Rodovia
-            </label>
-            <select
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              value={segmentRoadId}
-              onChange={(e) => setSegmentRoadId(e.target.value)}
-            >
-              <option value="">Selecione</option>
-              {roads.map((road) => (
-                <option key={road.id} value={road.id}>
-                  {road.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1">
-                Km inicial
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={kmStart}
-                onChange={(e) => setKmStart(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-600 mb-1">
-                Km final
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={kmEnd}
-                onChange={(e) => setKmEnd(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1">
-              Sentido (opcional)
+              Km inicial
             </label>
             <input
-              type="text"
-              placeholder="ex: NORTE"
+              type="number"
+              step="0.1"
               className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-              value={direction}
-              onChange={(e) => setDirection(e.target.value)}
+              value={kmStart}
+              onChange={(e) => setKmStart(e.target.value)}
             />
           </div>
-
           <div>
-            <p className="block text-sm font-medium text-slate-600 mb-1">
-              Localização no mapa (opcional — necessário pra aparecer no mapa)
-            </p>
-            <LocationPicker key={pickerKey} onChange={setPicked} />
+            <label className="block text-sm font-medium text-slate-600 mb-1">
+              Km final
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              value={kmEnd}
+              onChange={(e) => setKmEnd(e.target.value)}
+            />
           </div>
+        </div>
 
-          {segmentError && (
-            <p className="text-sm text-red-600">{segmentError}</p>
-          )}
+        {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={!segmentRoadId || !kmStart || !kmEnd || segmentSubmitting}
-            className="w-full rounded-md bg-emerald-600 text-white text-sm font-medium py-2 disabled:opacity-50"
-          >
-            {segmentSubmitting ? "Salvando..." : "Cadastrar trecho"}
-          </button>
-        </form>
-      </section>
-    </div>
+        <button
+          type="submit"
+          disabled={!roadName.trim() || !kmStart || !kmEnd || submitting}
+          className="w-full rounded-md bg-emerald-600 text-white text-sm font-medium py-2 disabled:opacity-50"
+        >
+          {submitting ? "Salvando..." : "Cadastrar rodovia"}
+        </button>
+      </form>
+    </section>
   );
 }
