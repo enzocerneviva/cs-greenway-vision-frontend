@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { CircleMarker, MapContainer, Polyline, TileLayer, useMapEvents } from "react-leaflet";
-import type { LatLngExpression } from "leaflet";
+import { useEffect, useState } from "react";
+import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import { AddressSearch } from "./AddressSearch";
 
-const DEFAULT_CENTER: LatLngExpression = [-22.9068, -43.3];
+const DEFAULT_CENTER: [number, number] = [-22.9068, -43.3];
 
 export interface PickedLocation {
   lat_start: number;
@@ -11,27 +12,51 @@ export interface PickedLocation {
   lng_end: number;
 }
 
+function coloredPinIcon(color: string) {
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5)"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+}
+
+const START_ICON = coloredPinIcon("#059669");
+const END_ICON = coloredPinIcon("#2563eb");
+
 export function LocationPicker({
   onChange,
 }: {
   onChange: (location: PickedLocation | null) => void;
 }) {
-  const [start, setStart] = useState<LatLngExpression | null>(null);
-  const [end, setEnd] = useState<LatLngExpression | null>(null);
+  const [start, setStart] = useState<[number, number] | null>(null);
+  const [end, setEnd] = useState<[number, number] | null>(null);
+  const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
 
-  function handleMapClick(latlng: LatLngExpression) {
+  function emit(nextStart: [number, number] | null, nextEnd: [number, number] | null) {
+    if (nextStart && nextEnd) {
+      onChange({
+        lat_start: nextStart[0],
+        lng_start: nextStart[1],
+        lat_end: nextEnd[0],
+        lng_end: nextEnd[1],
+      });
+    } else {
+      onChange(null);
+    }
+  }
+
+  function handleMapClick(latlng: [number, number]) {
     if (!start) {
       setStart(latlng);
-      onChange(null);
+      emit(latlng, end);
     } else if (!end) {
       setEnd(latlng);
-      const [latStart, lngStart] = start as [number, number];
-      const [latEnd, lngEnd] = latlng as [number, number];
-      onChange({ lat_start: latStart, lng_start: lngStart, lat_end: latEnd, lng_end: lngEnd });
+      emit(start, latlng);
     } else {
       setStart(latlng);
       setEnd(null);
-      onChange(null);
+      emit(latlng, null);
     }
   }
 
@@ -41,14 +66,40 @@ export function LocationPicker({
     onChange(null);
   }
 
+  function handleAddressSelect(lat: number, lng: number) {
+    setFlyTarget([lat, lng]);
+  }
+
+  function updateCoordinate(
+    which: "start" | "end",
+    axis: 0 | 1,
+    rawValue: string
+  ) {
+    const value = rawValue === "" ? NaN : Number(rawValue);
+    const current = which === "start" ? start : end;
+    const base: [number, number] = current ?? [DEFAULT_CENTER[0], DEFAULT_CENTER[1]];
+    const next: [number, number] = [...base];
+    next[axis] = Number.isNaN(value) ? base[axis] : value;
+
+    if (which === "start") {
+      setStart(next);
+      emit(next, end);
+    } else {
+      setEnd(next);
+      emit(start, next);
+    }
+  }
+
   return (
     <div>
+      <AddressSearch onSelect={handleAddressSelect} />
+
       <p className="text-xs text-slate-500 mb-1">
         {!start
-          ? "Clique no mapa pra marcar o início do trecho"
+          ? "Clique no mapa (ou arraste um pino) pra marcar o início do trecho"
           : !end
           ? "Agora clique pra marcar o fim do trecho"
-          : "Início e fim marcados — clique de novo pra recomeçar"}
+          : "Início e fim marcados — arraste os pinos pra ajustar, ou clique de novo pra recomeçar"}
       </p>
       <div className="h-56 rounded-md overflow-hidden border border-slate-300">
         <MapContainer
@@ -62,18 +113,35 @@ export function LocationPicker({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <ClickCapture onClick={handleMapClick} />
+          <FlyTo target={flyTarget} />
           {start && (
-            <CircleMarker
-              center={start}
-              radius={8}
-              pathOptions={{ color: "#059669", fillColor: "#059669", fillOpacity: 1 }}
+            <Marker
+              position={start}
+              icon={START_ICON}
+              draggable
+              eventHandlers={{
+                dragend: (e) => {
+                  const { lat, lng } = e.target.getLatLng();
+                  const next: [number, number] = [lat, lng];
+                  setStart(next);
+                  emit(next, end);
+                },
+              }}
             />
           )}
           {end && (
-            <CircleMarker
-              center={end}
-              radius={8}
-              pathOptions={{ color: "#2563eb", fillColor: "#2563eb", fillOpacity: 1 }}
+            <Marker
+              position={end}
+              icon={END_ICON}
+              draggable
+              eventHandlers={{
+                dragend: (e) => {
+                  const { lat, lng } = e.target.getLatLng();
+                  const next: [number, number] = [lat, lng];
+                  setEnd(next);
+                  emit(start, next);
+                },
+              }}
             />
           )}
           {start && end && (
@@ -81,6 +149,22 @@ export function LocationPicker({
           )}
         </MapContainer>
       </div>
+
+      <div className="grid grid-cols-2 gap-3 mt-2">
+        <CoordinateInputs
+          label="Início"
+          color="#059669"
+          value={start}
+          onChange={(axis, value) => updateCoordinate("start", axis, value)}
+        />
+        <CoordinateInputs
+          label="Fim"
+          color="#2563eb"
+          value={end}
+          onChange={(axis, value) => updateCoordinate("end", axis, value)}
+        />
+      </div>
+
       {(start || end) && (
         <button
           type="button"
@@ -94,11 +178,61 @@ export function LocationPicker({
   );
 }
 
-function ClickCapture({ onClick }: { onClick: (latlng: LatLngExpression) => void }) {
+function CoordinateInputs({
+  label,
+  color,
+  value,
+  onChange,
+}: {
+  label: string;
+  color: string;
+  value: [number, number] | null;
+  onChange: (axis: 0 | 1, value: string) => void;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium mb-1" style={{ color }}>
+        {label}
+      </p>
+      <div className="grid grid-cols-2 gap-1">
+        <input
+          type="number"
+          step="any"
+          placeholder="lat"
+          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          value={value ? value[0] : ""}
+          onChange={(e) => onChange(0, e.target.value)}
+        />
+        <input
+          type="number"
+          step="any"
+          placeholder="lng"
+          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          value={value ? value[1] : ""}
+          onChange={(e) => onChange(1, e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ClickCapture({ onClick }: { onClick: (latlng: [number, number]) => void }) {
   useMapEvents({
     click(e) {
       onClick([e.latlng.lat, e.latlng.lng]);
     },
   });
+  return null;
+}
+
+function FlyTo({ target }: { target: [number, number] | null }) {
+  const map = useMap();
+  const targetKey = target ? `${target[0]},${target[1]}` : null;
+
+  useEffect(() => {
+    if (target) map.flyTo(target, 15);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targetKey]);
+
   return null;
 }
