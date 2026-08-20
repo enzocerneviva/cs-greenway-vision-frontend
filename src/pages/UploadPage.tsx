@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useAsync } from "../hooks/useAsync";
 import { createInspection, listInspections } from "../api/inspections";
 import { listRoads, listSegments } from "../api/roads";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
-import { BLOCK_SIZE_KM } from "../lib/highwayBlocks";
 import { FrameCard } from "../components/shared/FrameCard";
+import { BlockRangePicker, type KmRange } from "../components/upload/BlockRangePicker";
 import type { Inspection } from "../api/types";
 
 type MediaKind = "video" | "photo";
@@ -22,7 +22,8 @@ export function UploadPage() {
   const [roadId, setRoadId] = useState<string>("");
   const [segmentId, setSegmentId] = useState<string>("");
   const [mediaKind, setMediaKind] = useState<MediaKind>("video");
-  const [blockKm, setBlockKm] = useState<string>("");
+  const [range, setRange] = useState<KmRange | null>(null);
+  const [rangePickerKey, setRangePickerKey] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -33,31 +34,19 @@ export function UploadPage() {
 
   const selectedSegment = (segments ?? []).find((s) => String(s.id) === segmentId);
 
-  const blockOptions = useMemo(() => {
-    if (!selectedSegment) return [];
-    const options: { kmStart: number; kmEnd: number }[] = [];
-    for (let km = selectedSegment.km_start; km < selectedSegment.km_end; km += BLOCK_SIZE_KM) {
-      options.push({ kmStart: km, kmEnd: km + BLOCK_SIZE_KM });
-    }
-    return options;
-  }, [selectedSegment]);
-
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!segmentId || !file) return;
-    if (mediaKind === "photo" && !blockKm) return;
+    if (mediaKind === "photo" && !range) return;
 
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await createInspection(
-        Number(segmentId),
-        file,
-        mediaKind === "photo" ? Number(blockKm) : undefined
-      );
+      await createInspection(Number(segmentId), file, range ?? undefined);
       setFile(null);
       setSegmentId("");
-      setBlockKm("");
+      setRange(null);
+      setRangePickerKey((k) => k + 1);
       refetch();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : String(err));
@@ -122,7 +111,8 @@ export function UploadPage() {
                 onClick={() => {
                   setMediaKind("video");
                   setFile(null);
-                  setBlockKm("");
+                  setRange(null);
+                  setRangePickerKey((k) => k + 1);
                 }}
                 className={`flex-1 py-1.5 ${
                   mediaKind === "video" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
@@ -135,6 +125,8 @@ export function UploadPage() {
                 onClick={() => {
                   setMediaKind("photo");
                   setFile(null);
+                  setRange(null);
+                  setRangePickerKey((k) => k + 1);
                 }}
                 className={`flex-1 py-1.5 ${
                   mediaKind === "photo" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
@@ -145,24 +137,19 @@ export function UploadPage() {
             </div>
           </div>
 
-          {mediaKind === "photo" && (
+          {selectedSegment && (
             <div>
               <label className="block text-sm font-medium text-slate-600 mb-1">
-                Bloco de 500m que a foto representa
+                {mediaKind === "video"
+                  ? "Trecho que o vídeo cobre"
+                  : "Bloco de 500m que a foto representa"}
               </label>
-              <select
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={blockKm}
-                onChange={(e) => setBlockKm(e.target.value)}
-                disabled={!selectedSegment}
-              >
-                <option value="">Selecione</option>
-                {blockOptions.map((block) => (
-                  <option key={block.kmStart} value={block.kmStart}>
-                    km {block.kmStart.toFixed(1)} – {block.kmEnd.toFixed(1)}
-                  </option>
-                ))}
-              </select>
+              <BlockRangePicker
+                key={rangePickerKey}
+                segment={selectedSegment}
+                single={mediaKind === "photo"}
+                onChange={setRange}
+              />
             </div>
           )}
 
@@ -185,7 +172,7 @@ export function UploadPage() {
           <button
             type="submit"
             disabled={
-              !segmentId || !file || submitting || (mediaKind === "photo" && !blockKm)
+              !segmentId || !file || submitting || (mediaKind === "photo" && !range)
             }
             className="w-full rounded-md bg-emerald-600 text-white text-sm font-medium py-2 disabled:opacity-50"
           >
