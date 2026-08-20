@@ -207,7 +207,7 @@ export function UploadPage() {
         </form>
       </section>
 
-      <section className="bg-white rounded-lg border border-slate-200 p-5">
+      <section className="bg-white rounded-lg border border-slate-200 p-5 min-w-0">
         <h2 className="font-semibold text-slate-900 mb-4">
           Inspeções recentes
         </h2>
@@ -241,7 +241,7 @@ function InspectionRow({ inspection }: { inspection: Inspection }) {
   const hasFrames = inspection.frame_analyses.length > 0;
 
   return (
-    <li className="py-3">
+    <li className="py-3 min-w-0">
       <button
         type="button"
         onClick={() => hasFrames && setExpanded((v) => !v)}

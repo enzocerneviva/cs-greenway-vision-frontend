@@ -97,7 +97,7 @@ function LaneCard({ lane, block }: { lane: LaneDirection; block: HighwayBlock })
   const data = block.lanes[lane];
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 min-w-0">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-700">{LANE_LABEL[lane]}</p>
         <PriorityBadge priority={data.priority} />

@@ -110,7 +110,7 @@ export function SegmentsMap({
       <MapContainer
         center={DEFAULT_CENTER}
         zoom={12}
-        scrollWheelZoom={false}
+        scrollWheelZoom={true}
         style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
