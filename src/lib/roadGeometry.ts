@@ -1,33 +1,33 @@
+const KM_PER_DEGREE = 111; // aproximação, mesma usada no resto do projeto
+
 /**
- * Mapeia uma posição em km (dentro do alcance total da rodovia) pra um
- * ponto ao longo do traçado real buscado no OpenStreetMap — por distância
- * proporcional, mesma aproximação já usada pra posicionar frame dentro de
- * um Segment (não é marco quilométrico oficial).
+ * Mapeia uma posição em km pra um ponto ao longo do traçado real buscado no
+ * OpenStreetMap — por distância real acumulada a partir do início do
+ * traçado (tratado como km 0), não por esticar o traçado inteiro
+ * proporcionalmente ao intervalo do trecho.
+ *
+ * Isso importa porque o traçado encontrado no OSM costuma ser mais longo
+ * que a concessão registrada (ex.: a Anhanguera no OSM é o corredor
+ * inteiro até a divisa com MG, ~450km, mesmo a concessão sendo só km
+ * 11-158) — esticar proporcionalmente distorceria a posição de cada bloco.
+ * O backend já orienta o traçado pra ponta mais próxima de São Paulo vir
+ * primeiro (ver app/services/geocoding_service.py).
  */
-export function createRoadKmMapper(
-  geometry: [number, number][],
-  roadMinKm: number,
-  roadMaxKm: number
-) {
-  const cumDist: number[] = [0];
+export function createRoadKmMapper(geometry: [number, number][]) {
+  const cumDistKm: number[] = [0];
   for (let i = 1; i < geometry.length; i++) {
     const [lat1, lng1] = geometry[i - 1];
     const [lat2, lng2] = geometry[i];
-    cumDist.push(cumDist[i - 1] + Math.hypot(lat2 - lat1, lng2 - lng1));
+    cumDistKm.push(cumDistKm[i - 1] + Math.hypot(lat2 - lat1, lng2 - lng1) * KM_PER_DEGREE);
   }
-  const total = cumDist[cumDist.length - 1] || 1;
-  const kmRange = roadMaxKm - roadMinKm || 1;
+  const maxKm = cumDistKm[cumDistKm.length - 1] || 0;
 
-  function distanceAtKm(km: number): number {
-    const fraction = (km - roadMinKm) / kmRange;
-    return Math.max(0, Math.min(1, fraction)) * total;
-  }
-
-  function pointAtDistance(targetDist: number): [number, number] {
+  function pointAtKm(km: number): [number, number] {
+    const target = Math.max(0, Math.min(km, maxKm));
     let i = 1;
-    while (i < cumDist.length - 1 && cumDist[i] < targetDist) i++;
-    const segLen = cumDist[i] - cumDist[i - 1] || 1;
-    const segFrac = (targetDist - cumDist[i - 1]) / segLen;
+    while (i < cumDistKm.length - 1 && cumDistKm[i] < target) i++;
+    const segLen = cumDistKm[i] - cumDistKm[i - 1] || 1;
+    const segFrac = (target - cumDistKm[i - 1]) / segLen;
     const [lat1, lng1] = geometry[i - 1];
     const [lat2, lng2] = geometry[i];
     return [lat1 + (lat2 - lat1) * segFrac, lng1 + (lng2 - lng1) * segFrac];
@@ -35,13 +35,11 @@ export function createRoadKmMapper(
 
   return {
     sliceByKm(kmStart: number, kmEnd: number): [number, number][] {
-      const startDist = distanceAtKm(kmStart);
-      const endDist = distanceAtKm(kmEnd);
-      const points: [number, number][] = [pointAtDistance(startDist)];
-      for (let i = 0; i < cumDist.length; i++) {
-        if (cumDist[i] > startDist && cumDist[i] < endDist) points.push(geometry[i]);
+      const points: [number, number][] = [pointAtKm(kmStart)];
+      for (let i = 0; i < cumDistKm.length; i++) {
+        if (cumDistKm[i] > kmStart && cumDistKm[i] < kmEnd) points.push(geometry[i]);
       }
-      points.push(pointAtDistance(endDist));
+      points.push(pointAtKm(kmEnd));
       return points;
     },
   };

@@ -33,10 +33,9 @@ export function SegmentsMap({
 
       if (road.geometry && road.geometry.length >= 2) {
         // traçado real do OSM: cada bloco de 500m vira um trechinho colorido
-        // do traçado, na posição km proporcional ao longo dele.
-        const roadMinKm = Math.min(...roadSegments.map((s) => s.km_start));
-        const roadMaxKm = Math.max(...roadSegments.map((s) => s.km_end));
-        const mapper = createRoadKmMapper(road.geometry, roadMinKm, roadMaxKm);
+        // do traçado, na posição km real ao longo dele (início do traçado =
+        // km 0 — ver createRoadKmMapper).
+        const mapper = createRoadKmMapper(road.geometry);
         const blocks = buildHighwayBlocks(roadSegments, inspectionsBySegment);
 
         for (const block of blocks) {
