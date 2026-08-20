@@ -3,49 +3,92 @@ import { MapContainer, Polyline, TileLayer, Tooltip, useMap } from "react-leafle
 import type { LatLngBoundsExpression, LatLngExpression } from "leaflet";
 import type { Inspection, Priority, Road, Segment } from "../../api/types";
 import { PRIORITY_COLORS } from "../../lib/priorityColors";
+import { buildHighwayBlocks } from "../../lib/highwayBlocks";
+import { createRoadKmMapper } from "../../lib/roadGeometry";
 
 const DEFAULT_CENTER: LatLngExpression = [-22.9068, -43.3];
 
-interface GeoSegment {
-  segment: Segment;
-  road: Road | undefined;
+interface ColoredLine {
+  key: string;
+  positions: LatLngExpression[];
   priority: Priority | null;
-  positions: [LatLngExpression, LatLngExpression];
+  tooltip: string;
 }
 
 export function SegmentsMap({
   segments,
   roads,
-  latestBySegment,
+  inspectionsBySegment,
 }: {
   segments: Segment[];
   roads: Road[];
-  latestBySegment: Map<number, Inspection>;
+  inspectionsBySegment: Map<number, Inspection[]>;
 }) {
-  const geoSegments = useMemo<GeoSegment[]>(() => {
-    return segments
-      .filter(
-        (s) =>
-          s.lat_start != null &&
-          s.lng_start != null &&
-          s.lat_end != null &&
-          s.lng_end != null
-      )
-      .map((segment) => ({
-        segment,
-        road: roads.find((r) => r.id === segment.road_id),
-        priority: latestBySegment.get(segment.id)?.priority ?? null,
-        positions: [
-          [segment.lat_start as number, segment.lng_start as number],
-          [segment.lat_end as number, segment.lng_end as number],
-        ],
-      }));
-  }, [segments, roads, latestBySegment]);
+  const lines = useMemo<ColoredLine[]>(() => {
+    const result: ColoredLine[] = [];
 
-  if (geoSegments.length === 0) {
+    for (const road of roads) {
+      const roadSegments = segments.filter((s) => s.road_id === road.id);
+      if (roadSegments.length === 0) continue;
+
+      if (road.geometry && road.geometry.length >= 2) {
+        // traçado real do OSM: cada bloco de 500m vira um trechinho colorido
+        // do traçado, na posição km proporcional ao longo dele.
+        const roadMinKm = Math.min(...roadSegments.map((s) => s.km_start));
+        const roadMaxKm = Math.max(...roadSegments.map((s) => s.km_end));
+        const mapper = createRoadKmMapper(road.geometry, roadMinKm, roadMaxKm);
+        const blocks = buildHighwayBlocks(roadSegments, inspectionsBySegment);
+
+        for (const block of blocks) {
+          if (block.segmentId === null) continue;
+          result.push({
+            key: `${road.id}-${block.index}`,
+            positions: mapper.sliceByKm(block.kmStart, block.kmEnd),
+            priority: block.priority,
+            tooltip: `${road.name} · km ${block.kmStart.toFixed(1)}–${block.kmEnd.toFixed(1)} · ${
+              block.priority ?? "sem inspeção"
+            }`,
+          });
+        }
+        continue;
+      }
+
+      // sem traçado real ainda: cai pra linha reta manual (lat/lng do Segment)
+      for (const segment of roadSegments) {
+        if (
+          segment.lat_start == null ||
+          segment.lng_start == null ||
+          segment.lat_end == null ||
+          segment.lng_end == null
+        ) {
+          continue;
+        }
+        const inspections = inspectionsBySegment.get(segment.id) ?? [];
+        const latest = inspections.reduce<Inspection | null>(
+          (best, insp) => (!best || insp.created_at > best.created_at ? insp : best),
+          null
+        );
+        result.push({
+          key: `${road.id}-seg-${segment.id}`,
+          positions: [
+            [segment.lat_start, segment.lng_start],
+            [segment.lat_end, segment.lng_end],
+          ],
+          priority: latest?.priority ?? null,
+          tooltip: `${road.name} · km ${segment.km_start}–${segment.km_end} · ${
+            latest?.priority ?? "sem inspeção"
+          }`,
+        });
+      }
+    }
+
+    return result;
+  }, [segments, roads, inspectionsBySegment]);
+
+  if (lines.length === 0) {
     return (
       <div className="h-80 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-500">
-        Nenhum trecho com coordenadas cadastradas ainda.
+        Nenhum trecho com localização disponível ainda.
       </div>
     );
   }
@@ -62,27 +105,20 @@ export function SegmentsMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {geoSegments.map(({ segment, road, priority, positions }) => (
+        {lines.map((line) => (
           <Polyline
-            key={segment.id}
-            positions={positions}
+            key={line.key}
+            positions={line.positions}
             pathOptions={{
-              color: PRIORITY_COLORS[priority ?? "NONE"],
-              weight: 6,
+              color: PRIORITY_COLORS[line.priority ?? "NONE"],
+              weight: 5,
               opacity: 0.85,
             }}
           >
-            <Tooltip sticky>
-              <strong>{road?.name ?? `Rodovia #${segment.road_id}`}</strong>
-              <br />
-              km {segment.km_start} – {segment.km_end}
-              {segment.direction ? ` · ${segment.direction}` : ""}
-              <br />
-              criticidade: {priority ?? "sem inspeção"}
-            </Tooltip>
+            <Tooltip sticky>{line.tooltip}</Tooltip>
           </Polyline>
         ))}
-        <FitBounds positions={geoSegments.flatMap((g) => g.positions)} />
+        <FitBounds positions={lines.flatMap((l) => l.positions)} />
       </MapContainer>
     </div>
   );
@@ -90,7 +126,7 @@ export function SegmentsMap({
 
 function FitBounds({ positions }: { positions: LatLngExpression[] }) {
   const map = useMap();
-  const boundsKey = JSON.stringify(positions);
+  const boundsKey = positions.length;
 
   useEffect(() => {
     if (positions.length === 0) return;

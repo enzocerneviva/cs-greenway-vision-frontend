@@ -2,6 +2,7 @@ export interface Road {
   id: number;
   name: string;
   concessionaire: string | null;
+  geometry: [number, number][] | null;
 }
 
 export interface Segment {

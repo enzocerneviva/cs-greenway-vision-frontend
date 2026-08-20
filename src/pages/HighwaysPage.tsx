@@ -110,6 +110,7 @@ export function HighwaysPage() {
           setSelectedRoadId={setSelectedRoadId}
           visibleSegments={visibleSegments}
           latestBySegment={latestBySegment}
+          inspectionsBySegment={inspectionsBySegment}
           refetchAll={refetchAll}
         />
       )}
@@ -124,6 +125,7 @@ function MapAndCadastroView({
   setSelectedRoadId,
   visibleSegments,
   latestBySegment,
+  inspectionsBySegment,
   refetchAll,
 }: {
   roadsState: ReturnType<typeof useAsync<Road[]>>;
@@ -132,6 +134,7 @@ function MapAndCadastroView({
   setSelectedRoadId: (id: string) => void;
   visibleSegments: Segment[];
   latestBySegment: Map<number, Inspection>;
+  inspectionsBySegment: Map<number, Inspection[]>;
   refetchAll: () => void;
 }) {
   return (
@@ -155,7 +158,7 @@ function MapAndCadastroView({
         <SegmentsMap
           segments={visibleSegments}
           roads={roadsState.data ?? []}
-          latestBySegment={latestBySegment}
+          inspectionsBySegment={inspectionsBySegment}
         />
       </section>
 
@@ -200,7 +203,7 @@ function SegmentCard({
 }) {
   const priority = latestInspection?.priority ?? null;
   const borderClass = CARD_BORDER[priority ?? "NONE"];
-  const hasCoordinates = segment.lat_start != null;
+  const hasCoordinates = segment.lat_start != null || (road?.geometry?.length ?? 0) >= 2;
 
   const [editingLocation, setEditingLocation] = useState(false);
   const [picked, setPicked] = useState<PickedLocation | null>(null);
