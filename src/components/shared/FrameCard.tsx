@@ -51,40 +51,44 @@ function FrameLightbox({
 }) {
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-6"
+      // z-[9999]: bem acima do que o Leaflet usa internamente (painéis do
+      // mapa chegam a z-index 700) — sem isso o mapa "vazava" por cima do
+      // modal em telas que mostram os dois ao mesmo tempo (ex.: detalhe do trecho).
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/70 p-6"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden"
+        className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col sm:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fechar"
+          className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 text-slate-600 shadow hover:bg-white flex items-center justify-center text-sm"
+        >
+          ✕
+        </button>
+
         <img
           src={mediaUrl(imagePath)}
           alt={`Frame em km ${frame.estimated_km.toFixed(2)}`}
-          className="w-full max-h-[70vh] object-contain bg-slate-900"
+          className="w-full sm:w-56 h-56 object-cover bg-slate-900 shrink-0"
         />
-        <div className="p-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="text-base font-semibold text-slate-900">
+
+        <div className="p-5 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-lg font-semibold text-slate-900">
               km {frame.estimated_km.toFixed(2)}
             </p>
-            <p className="text-sm text-slate-500 mt-1">
-              verde detectado: {frame.green_percent.toFixed(1)}%
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              frame #{frame.frame_index} · {frame.timestamp_seconds.toFixed(1)}s no vídeo
-            </p>
+            <PriorityBadge priority={frame.priority} />
           </div>
-          <PriorityBadge priority={frame.priority} />
-        </div>
-        <div className="px-5 pb-5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded-md border border-slate-300 text-sm font-medium py-2 text-slate-600 hover:bg-slate-50"
-          >
-            Fechar
-          </button>
+          <p className="text-sm text-slate-500">
+            verde detectado: {frame.green_percent.toFixed(1)}%
+          </p>
+          <p className="text-xs text-slate-400">
+            frame #{frame.frame_index} · {frame.timestamp_seconds.toFixed(1)}s no vídeo
+          </p>
         </div>
       </div>
     </div>,
