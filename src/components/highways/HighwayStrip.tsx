@@ -238,7 +238,7 @@ function BlockTooltip({ hover }: { hover: HoverState }) {
 
   return createPortal(
     <div
-      className="pointer-events-none fixed z-50 w-56 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 text-white text-xs p-3 shadow-xl"
+      className="pointer-events-none fixed z-50 w-56 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 text-white dark:text-slate-50 text-xs p-3 shadow-xl"
       style={{ left: x, top: y - 10 }}
     >
       <p className="font-semibold">

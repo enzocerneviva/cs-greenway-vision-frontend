@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
 }
@@ -8,4 +10,80 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/*
+ * Dark mode: em vez de duplicar cada classe com `dark:`, a escala slate é invertida
+ * e as cores claras de status (50–200) viram tons escuros. As cores 500–600 (botões,
+ * barras de status) ficam iguais nos dois temas.
+ */
+.dark {
+  color-scheme: dark;
+
+  --color-slate-50: #0b1120;
+  --color-slate-100: #172033;
+  --color-slate-200: #263244;
+  --color-slate-300: #3a4960;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #a8b5c7;
+  --color-slate-700: #cbd5e1;
+  --color-slate-800: #e2e8f0;
+  --color-slate-900: #f1f5f9;
+  --color-slate-950: #f8fafc;
+
+  --color-emerald-50: #0b2a22;
+  --color-emerald-100: #0f3a2e;
+  --color-emerald-200: #14513f;
+  --color-emerald-700: #6ee7b7;
+  --color-red-50: #2e1416;
+  --color-red-100: #451a1d;
+  --color-red-200: #6b2227;
+  --color-red-300: #9f3037;
+  --color-red-600: #f87171;
+  --color-red-700: #fca5a5;
+  --color-amber-100: #422c0c;
+  --color-amber-600: #fbbf24;
+  --color-amber-700: #fcd34d;
+}
+
+.dark .bg-white {
+  background-color: #111a2c;
+}
+.dark .bg-white\/90 {
+  background-color: rgb(17 26 44 / 0.9);
+}
+.dark .hover\:bg-white:hover {
+  background-color: #111a2c;
+}
+
+/* Botões sólidos mantêm o vermelho/verde de fundo e o texto branco */
+.dark .bg-red-600 {
+  background-color: #dc2626;
+}
+
+/* Mapa: escurece os tiles sem tocar nos marcadores e linhas */
+.dark .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+}
+.dark .leaflet-container {
+  background: #0b1120;
+}
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: #111a2c;
+  color: #e2e8f0;
+}
+.dark .leaflet-control-zoom a,
+.dark .leaflet-bar a {
+  background-color: #111a2c;
+  color: #e2e8f0;
+  border-color: #263244;
+}
+.dark .leaflet-control-attribution {
+  background: rgb(11 17 32 / 0.8) !important;
+  color: #94a3b8;
+}
+.dark .leaflet-control-attribution a {
+  color: #6ee7b7;
 }

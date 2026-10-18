@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { resetInspections } from "../api/inspections";
+import { useTheme, type ThemePreference } from "../hooks/useTheme";
+
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: "light", label: "Claro" },
+  { value: "dark", label: "Escuro" },
+  { value: "system", label: "Sistema" },
+];
 
 export function SettingsPage() {
+  const { preference, setPreference } = useTheme();
   const [confirming, setConfirming] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [result, setResult] = useState<"success" | "error" | null>(null);
@@ -23,6 +31,31 @@ export function SettingsPage() {
   return (
     <div className="max-w-xl">
       <h1 className="text-xl font-semibold text-slate-900 mb-6">Configurações</h1>
+
+      <section className="bg-white rounded-lg border border-slate-200 shadow-sm p-5 mb-6">
+        <h2 className="font-semibold text-slate-900">Aparência</h2>
+        <p className="text-sm text-slate-500 mt-1">
+          Escolha o tema da interface. "Sistema" acompanha a preferência do seu dispositivo.
+        </p>
+        <div role="radiogroup" aria-label="Tema" className="mt-4 inline-flex rounded-md border border-slate-300 overflow-hidden">
+          {THEME_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              role="radio"
+              aria-checked={preference === option.value}
+              onClick={() => setPreference(option.value)}
+              className={`px-4 py-2 text-sm font-medium ${
+                preference === option.value
+                  ? "bg-slate-900 text-white dark:text-slate-50"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="bg-white rounded-lg border border-slate-200 shadow-sm p-5">
         <h2 className="font-semibold text-slate-900">Resetar análises</h2>

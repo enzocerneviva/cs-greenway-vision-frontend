@@ -114,7 +114,7 @@ export function UploadPage() {
                   type="button"
                   onClick={() => setDirection(lane)}
                   className={`flex-1 py-1.5 ${
-                    direction === lane ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+                    direction === lane ? "bg-slate-900 text-white dark:text-slate-50" : "bg-white text-slate-600"
                   }`}
                 >
                   {LANE_LABEL[lane]}
@@ -137,7 +137,7 @@ export function UploadPage() {
                   setRangePickerKey((k) => k + 1);
                 }}
                 className={`flex-1 py-1.5 ${
-                  mediaKind === "video" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+                  mediaKind === "video" ? "bg-slate-900 text-white dark:text-slate-50" : "bg-white text-slate-600"
                 }`}
               >
                 Vídeo
@@ -151,7 +151,7 @@ export function UploadPage() {
                   setRangePickerKey((k) => k + 1);
                 }}
                 className={`flex-1 py-1.5 ${
-                  mediaKind === "photo" ? "bg-slate-900 text-white" : "bg-white text-slate-600"
+                  mediaKind === "photo" ? "bg-slate-900 text-white dark:text-slate-50" : "bg-white text-slate-600"
                 }`}
               >
                 Foto
