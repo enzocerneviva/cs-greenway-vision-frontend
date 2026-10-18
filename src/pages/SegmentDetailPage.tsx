@@ -110,7 +110,7 @@ function LaneCard({ lane, block }: { lane: LaneDirection; block: HighwayBlock })
       </p>
 
       {data.frames.length > 0 && (
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+        <div className="mt-1 flex gap-2 overflow-x-auto px-1 pt-3 pb-5">
           {data.frames.map((frame) => (
             <FrameCard key={frame.frame_index} frame={frame} />
           ))}

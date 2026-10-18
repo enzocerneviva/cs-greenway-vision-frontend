@@ -266,7 +266,7 @@ function InspectionRow({ inspection }: { inspection: Inspection }) {
       </button>
 
       {expanded && (
-        <div className="mt-3 flex gap-3 overflow-x-auto pb-1">
+        <div className="mt-1 flex gap-3 overflow-x-auto px-1 pt-3 pb-5">
           {inspection.frame_analyses.map((frame) => (
             <FrameCard key={frame.frame_index} frame={frame} />
           ))}
