@@ -12,6 +12,22 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
+/* Entrada suave dos popovers (Select, DatePicker) */
+@keyframes popover-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.popover-enter {
+  animation: popover-enter 140ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .popover-enter {
+    animation: none;
+  }
+}
+
 /*
  * Barras de rolagem: estilizadas por CSS em vez de recriadas em JS, assim mantêm
  * todo o comportamento nativo (touchpad, inércia, roda do mouse, arrastar, teclado).
