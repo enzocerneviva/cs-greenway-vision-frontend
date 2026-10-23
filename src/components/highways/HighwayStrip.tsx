@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import type { Priority, Road, Segment, Inspection } from "../../api/types";
 import { buildHighwayBlocks, LANES, LANE_LABEL, type HighwayBlock } from "../../lib/highwayBlocks";
+import { Select } from "../ui/Select";
+import { NumberInput } from "../ui/NumberInput";
 
 const PRIORITY_BG: Record<Priority, string> = {
   LOW: "bg-emerald-500 hover:bg-emerald-600",
@@ -123,22 +125,26 @@ export function HighwayStrip({
 
       {/* Barra de filtros e estatísticas */}
       <div className="flex flex-wrap items-center gap-3 px-6 py-5">
-        <select
-          className="rounded-lg bg-white border border-slate-300 px-3 py-2 text-sm text-slate-700 shadow-sm"
+        <Select
+          ariaLabel="Filtrar por criticidade"
+          className="w-52"
           value={priorityFilter}
-          onChange={(e) => setPriorityFilter(e.target.value as Priority | "")}
-        >
-          <option value="">Todas as criticidades</option>
-          <option value="LOW">Baixa</option>
-          <option value="MEDIUM">Média</option>
-          <option value="HIGH">Alta</option>
-        </select>
-        <input
-          type="number"
+          onChange={(value) => setPriorityFilter(value as Priority | "")}
+          options={[
+            { value: "", label: "Todas as criticidades" },
+            { value: "LOW", label: "Baixa" },
+            { value: "MEDIUM", label: "Média" },
+            { value: "HIGH", label: "Alta" },
+          ]}
+        />
+        <NumberInput
+          ariaLabel="Buscar por km"
           placeholder="buscar por km"
-          className="w-36 rounded-lg bg-white border border-slate-300 px-3 py-2 text-sm text-slate-700 shadow-sm placeholder:text-slate-400"
+          className="w-36"
+          min={0}
+          step={0.5}
           value={kmSearch}
-          onChange={(e) => setKmSearch(e.target.value)}
+          onChange={setKmSearch}
         />
 
         <div className="ml-auto flex items-center gap-5 text-sm">

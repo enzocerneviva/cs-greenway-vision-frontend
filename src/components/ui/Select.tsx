@@ -8,31 +8,50 @@ export interface SelectOption {
 }
 
 interface SelectProps {
-  label: string;
+  /** Rótulo visível acima do campo. Sem ele, informe `ariaLabel`. */
+  label?: string;
+  ariaLabel?: string;
   value: string;
   options: SelectOption[];
   onChange: (value: string) => void;
+  /** Texto exibido quando `value` não corresponde a nenhuma opção. */
+  placeholder?: string;
+  disabled?: boolean;
+  /** Classes do container (largura, margens). */
+  className?: string;
 }
 
 // Substitui o <select> nativo, cuja lista aberta é desenhada pelo SO e não segue o tema.
-export function Select({ label, value, options, onChange }: SelectProps) {
+export function Select({
+  label,
+  ariaLabel,
+  value,
+  options,
+  onChange,
+  placeholder,
+  disabled,
+  className,
+}: SelectProps) {
   const id = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
 
-  const selectedIndex = Math.max(
-    0,
-    options.findIndex((o) => o.value === value)
-  );
-  const selected = options[selectedIndex];
+  const selectedIndex = options.findIndex((o) => o.value === value);
+  const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined;
 
   const close = useCallback(() => setOpen(false), []);
   useDismiss(rootRef, open, close);
 
+  // Se o campo ficar desabilitado com a lista aberta, fecha.
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
   function openList() {
-    setActive(selectedIndex);
+    if (disabled) return;
+    setActive(Math.max(0, selectedIndex));
     setOpen(true);
   }
 
@@ -84,10 +103,12 @@ export function Select({ label, value, options, onChange }: SelectProps) {
   }
 
   return (
-    <div className="block" ref={rootRef}>
-      <span id={`${id}-label`} className="block text-xs font-medium text-slate-500 mb-1">
-        {label}
-      </span>
+    <div className={className ?? "block"} ref={rootRef}>
+      {label && (
+        <span id={`${id}-label`} className="block text-xs font-medium text-slate-500 mb-1">
+          {label}
+        </span>
+      )}
       <div className="relative">
         <button
           type="button"
@@ -95,15 +116,17 @@ export function Select({ label, value, options, onChange }: SelectProps) {
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={`${id}-list`}
-          aria-labelledby={`${id}-label`}
+          aria-labelledby={label ? `${id}-label` : undefined}
+          aria-label={label ? undefined : ariaLabel}
           aria-activedescendant={open ? `${id}-opt-${active}` : undefined}
+          disabled={disabled}
           onClick={() => (open ? close() : openList())}
           onKeyDown={onKeyDown}
-          className={`flex w-full items-center justify-between gap-2 rounded-md border bg-white px-3 py-1.5 text-left text-sm text-slate-800 outline-none transition-colors hover:border-slate-400 focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+          className={`flex w-full items-center justify-between gap-2 rounded-md border bg-white px-3 py-2 text-left text-sm outline-none transition-colors hover:border-slate-400 focus-visible:ring-2 focus-visible:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-300 ${
             open ? "border-emerald-500" : "border-slate-300"
-          }`}
+          } ${selected ? "text-slate-800" : "text-slate-400"}`}
         >
-          <span className="truncate">{selected?.label}</span>
+          <span className="truncate">{selected?.label ?? placeholder ?? ""}</span>
           <svg
             viewBox="0 0 20 20"
             fill="none"
@@ -123,9 +146,13 @@ export function Select({ label, value, options, onChange }: SelectProps) {
             ref={listRef}
             id={`${id}-list`}
             role="listbox"
-            aria-labelledby={`${id}-label`}
+            aria-labelledby={label ? `${id}-label` : undefined}
+            aria-label={label ? undefined : ariaLabel}
             className="popover-enter absolute left-0 right-0 z-30 mt-1 max-h-60 min-w-max overflow-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
           >
+            {options.length === 0 && (
+              <li className="px-2.5 py-1.5 text-sm text-slate-400">Nenhuma opção</li>
+            )}
             {options.map((option, index) => {
               const isSelected = option.value === value;
               return (

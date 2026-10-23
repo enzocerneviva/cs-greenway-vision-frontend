@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { AddressSearch } from "./AddressSearch";
+import { NumberInput } from "../ui/NumberInput";
 
 const DEFAULT_CENTER: [number, number] = [-22.9068, -43.3];
 
@@ -195,21 +196,25 @@ function CoordinateInputs({
         {label}
       </p>
       <div className="grid grid-cols-2 gap-1">
-        <input
-          type="number"
-          step="any"
+        <NumberInput
+          size="sm"
+          ariaLabel={`${label}: latitude`}
           placeholder="lat"
-          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          step={0.0001}
+          min={-90}
+          max={90}
           value={value ? value[0] : ""}
-          onChange={(e) => onChange(0, e.target.value)}
+          onChange={(text) => onChange(0, text)}
         />
-        <input
-          type="number"
-          step="any"
+        <NumberInput
+          size="sm"
+          ariaLabel={`${label}: longitude`}
           placeholder="lng"
-          className="w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+          step={0.0001}
+          min={-180}
+          max={180}
           value={value ? value[1] : ""}
-          onChange={(e) => onChange(1, e.target.value)}
+          onChange={(text) => onChange(1, text)}
         />
       </div>
     </div>

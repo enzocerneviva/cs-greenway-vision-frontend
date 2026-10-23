@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { BLOCK_SIZE_KM } from "../../lib/highwayBlocks";
 import type { Segment } from "../../api/types";
+import { Tooltip } from "../ui/Tooltip";
 
 export interface KmRange {
   kmStart: number;
@@ -110,15 +111,19 @@ export function BlockRangePicker({
         {blocks.map((blockKm) => {
           const inRange = lo !== null && hi !== null && blockKm >= lo && blockKm <= hi;
           return (
-            <button
+            <Tooltip
               key={blockKm}
-              type="button"
-              title={`km ${blockKm.toFixed(1)} – ${(blockKm + BLOCK_SIZE_KM).toFixed(1)}`}
-              onClick={() => handleClick(blockKm)}
-              className={`h-8 w-2.5 shrink-0 rounded-sm transition-colors ${
-                inRange ? "bg-emerald-500" : "bg-slate-200 hover:bg-slate-300"
-              }`}
-            />
+              content={`km ${blockKm.toFixed(1)} – ${(blockKm + BLOCK_SIZE_KM).toFixed(1)}`}
+            >
+              <button
+                type="button"
+                aria-label={`Bloco km ${blockKm.toFixed(1)} a ${(blockKm + BLOCK_SIZE_KM).toFixed(1)}`}
+                onClick={() => handleClick(blockKm)}
+                className={`h-8 w-2.5 shrink-0 rounded-sm transition-colors ${
+                  inRange ? "bg-emerald-500" : "bg-slate-200 hover:bg-slate-300"
+                }`}
+              />
+            </Tooltip>
           );
         })}
       </div>

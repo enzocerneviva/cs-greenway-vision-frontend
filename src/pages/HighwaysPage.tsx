@@ -12,6 +12,9 @@ import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { SegmentsMap } from "../components/highways/SegmentsMap";
 import { HighwayStrip } from "../components/highways/HighwayStrip";
 import { LocationPicker, type PickedLocation } from "../components/highways/LocationPicker";
+import { Select } from "../components/ui/Select";
+import { TextInput } from "../components/ui/TextInput";
+import { NumberInput } from "../components/ui/NumberInput";
 import type { Inspection, Priority, Road, Segment } from "../api/types";
 
 type ViewMode = "blocks" | "map";
@@ -142,18 +145,16 @@ function MapAndCadastroView({
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-slate-900">Mapa de criticidade</h2>
-          <select
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          <Select
+            ariaLabel="Filtrar por rodovia"
+            className="w-56"
             value={selectedRoadId}
-            onChange={(e) => setSelectedRoadId(e.target.value)}
-          >
-            <option value="">Todas as rodovias</option>
-            {(roadsState.data ?? []).map((road) => (
-              <option key={road.id} value={road.id}>
-                {road.name}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedRoadId}
+            options={[
+              { value: "", label: "Todas as rodovias" },
+              ...(roadsState.data ?? []).map((road) => ({ value: String(road.id), label: road.name })),
+            ]}
+          />
         </div>
         <SegmentsMap
           segments={visibleSegments}
@@ -340,43 +341,43 @@ function CadastroPanel({
         gerados automaticamente a partir disso.
       </p>
       <form onSubmit={handleCreate} className="space-y-3">
-        <input
-          type="text"
+        <TextInput
+          ariaLabel="Nome da rodovia"
           placeholder="Nome da rodovia (ex: SP-330)"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           value={roadName}
-          onChange={(e) => setRoadName(e.target.value)}
+          onChange={setRoadName}
         />
-        <input
-          type="text"
+        <TextInput
+          ariaLabel="Concessionária"
           placeholder="Concessionária (opcional)"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
           value={concessionaire}
-          onChange={(e) => setConcessionaire(e.target.value)}
+          onChange={setConcessionaire}
         />
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">
               Km inicial
             </label>
-            <input
-              type="number"
-              step="0.1"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            <NumberInput
+              ariaLabel="Km inicial"
+              step={0.1}
+              min={0}
+              stepper
               value={kmStart}
-              onChange={(e) => setKmStart(e.target.value)}
+              onChange={setKmStart}
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">
               Km final
             </label>
-            <input
-              type="number"
-              step="0.1"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            <NumberInput
+              ariaLabel="Km final"
+              step={0.1}
+              min={0}
+              stepper
               value={kmEnd}
-              onChange={(e) => setKmEnd(e.target.value)}
+              onChange={setKmEnd}
             />
           </div>
         </div>

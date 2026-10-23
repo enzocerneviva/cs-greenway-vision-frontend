@@ -5,6 +5,8 @@ import { listRoads, listSegments } from "../api/roads";
 import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { FrameCard } from "../components/shared/FrameCard";
 import { BlockRangePicker, type KmRange } from "../components/upload/BlockRangePicker";
+import { Select } from "../components/ui/Select";
+import { FileInput } from "../components/ui/FileInput";
 import { LANE_LABEL } from "../lib/highwayBlocks";
 import type { Inspection, LaneDirection } from "../api/types";
 
@@ -66,41 +68,35 @@ export function UploadPage() {
             <label className="block text-sm font-medium text-slate-600 mb-1">
               Rodovia
             </label>
-            <select
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            <Select
+              ariaLabel="Rodovia"
+              placeholder="Selecione"
               value={roadId}
-              onChange={(e) => {
-                setRoadId(e.target.value);
+              onChange={(value) => {
+                setRoadId(value);
                 setSegmentId("");
               }}
-            >
-              <option value="">Selecione</option>
-              {(roads ?? []).map((road) => (
-                <option key={road.id} value={road.id}>
-                  {road.name}
-                </option>
-              ))}
-            </select>
+              options={(roads ?? []).map((road) => ({ value: String(road.id), label: road.name }))}
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1">
               Trecho
             </label>
-            <select
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            <Select
+              ariaLabel="Trecho"
+              placeholder="Selecione"
               value={segmentId}
-              onChange={(e) => setSegmentId(e.target.value)}
+              onChange={setSegmentId}
               disabled={!roadId}
-            >
-              <option value="">Selecione</option>
-              {segmentsForRoad.map((segment) => (
-                <option key={segment.id} value={segment.id}>
-                  km {segment.km_start} – {segment.km_end}
-                  {segment.direction ? ` (${segment.direction})` : ""}
-                </option>
-              ))}
-            </select>
+              options={segmentsForRoad.map((segment) => ({
+                value: String(segment.id),
+                label: `km ${segment.km_start} – ${segment.km_end}${
+                  segment.direction ? ` (${segment.direction})` : ""
+                }`,
+              }))}
+            />
           </div>
 
           <div>
@@ -179,11 +175,12 @@ export function UploadPage() {
             <label className="block text-sm font-medium text-slate-600 mb-1">
               {mediaKind === "video" ? "Vídeo de inspeção" : "Foto"}
             </label>
-            <input
-              type="file"
+            <FileInput
+              file={file}
+              onChange={setFile}
               accept={mediaKind === "video" ? "video/*" : "image/*"}
-              className="w-full text-sm"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              prompt={mediaKind === "video" ? "Escolher vídeo" : "Escolher foto"}
+              ariaLabel={mediaKind === "video" ? "Vídeo de inspeção" : "Foto"}
             />
           </div>
 

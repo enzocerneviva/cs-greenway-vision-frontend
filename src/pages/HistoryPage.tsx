@@ -7,6 +7,8 @@ import { PriorityBadge } from "../components/shared/PriorityBadge";
 import { FrameCard } from "../components/shared/FrameCard";
 import { Select } from "../components/ui/Select";
 import { DatePicker } from "../components/ui/DatePicker";
+import { TextInput } from "../components/ui/TextInput";
+import { Tooltip } from "../components/ui/Tooltip";
 import { PRIORITY_COLORS } from "../lib/priorityColors";
 import { BLOCK_SIZE_KM, LANE_LABEL } from "../lib/highwayBlocks";
 import type { Inspection, LaneDirection, Priority, Road, Segment } from "../api/types";
@@ -222,39 +224,19 @@ export function HistoryPage() {
       </div>
 
       <section className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-        <div className="relative">
-          <svg
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-            aria-hidden="true"
-          >
-            <circle cx="9" cy="9" r="5.5" />
-            <path d="m13.5 13.5 3.5 3.5" strokeLinecap="round" />
-          </svg>
-          <input
-            type="text"
-            value={filters.q}
-            onChange={(e) => setFilter({ q: e.target.value })}
-            placeholder="Buscar por nº da inspeção, rodovia, concessionária ou km…"
-            aria-label="Buscar inspeções"
-            className="w-full rounded-md border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm text-slate-800 outline-none transition-colors placeholder:text-slate-400 hover:border-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30"
-          />
-          {filters.q && (
-            <button
-              type="button"
-              aria-label="Limpar busca"
-              onClick={() => setFilter({ q: "" })}
-              className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-            >
-              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" className="h-3 w-3" aria-hidden="true">
-                <path d="m5 5 10 10M15 5 5 15" strokeLinecap="round" />
-              </svg>
-            </button>
-          )}
-        </div>
+        <TextInput
+          value={filters.q}
+          onChange={(q) => setFilter({ q })}
+          placeholder="Buscar por nº da inspeção, rodovia, concessionária ou km…"
+          ariaLabel="Buscar inspeções"
+          clearable
+          icon={
+            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4" aria-hidden="true">
+              <circle cx="9" cy="9" r="5.5" />
+              <path d="m13.5 13.5 3.5 3.5" strokeLinecap="round" />
+            </svg>
+          }
+        />
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           <Select
@@ -455,19 +437,18 @@ function FrameDistribution({
   total: number;
 }) {
   return (
-    <div
-      className="mt-1.5 flex h-1.5 w-40 overflow-hidden rounded-full bg-slate-100"
-      title={PRIORITIES.map((p) => `${PRIORITY_LABEL[p]}: ${counts[p]}`).join(" · ")}
-    >
-      {PRIORITIES.map((p) =>
-        counts[p] > 0 ? (
-          <div
-            key={p}
-            style={{ width: `${(counts[p] / total) * 100}%`, backgroundColor: PRIORITY_COLORS[p] }}
-          />
-        ) : null
-      )}
-    </div>
+    <Tooltip content={PRIORITIES.map((p) => `${PRIORITY_LABEL[p]}: ${counts[p]}`).join(" · ")}>
+      <div className="mt-1.5 flex h-1.5 w-40 overflow-hidden rounded-full bg-slate-100">
+        {PRIORITIES.map((p) =>
+          counts[p] > 0 ? (
+            <div
+              key={p}
+              style={{ width: `${(counts[p] / total) * 100}%`, backgroundColor: PRIORITY_COLORS[p] }}
+            />
+          ) : null
+        )}
+      </div>
+    </Tooltip>
   );
 }
 

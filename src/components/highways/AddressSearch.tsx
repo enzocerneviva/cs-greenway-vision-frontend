@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { searchAddress, type GeocodeResult } from "../../lib/geocode";
+import { TextInput } from "../ui/TextInput";
 
 export function AddressSearch({
   onSelect,
@@ -35,18 +36,14 @@ export function AddressSearch({
   return (
     <div className="mb-2">
       <div className="flex gap-2">
-        <input
-          type="text"
+        <TextInput
+          className="w-full"
+          ariaLabel="Buscar endereço"
           placeholder="Buscar rua, cidade, endereço..."
-          className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          clearable
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleSearch();
-            }
-          }}
+          onChange={setQuery}
+          onEnter={handleSearch}
         />
         <button
           type="button"
